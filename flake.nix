@@ -16,6 +16,12 @@
     let
       pkgs = import nixpkgs { inherit system; };
       naersk-lib = pkgs.callPackage naersk { };
+      libPath = with pkgs; lib.makeLibraryPath [
+        xorg.libX11
+        xorg.libXcursor
+        xorg.libXrandr
+        xorg.libXi
+      ];
     in
     {
       defaultPackage = naersk-lib.buildPackage ./.;
@@ -30,6 +36,7 @@
             rustPackages.clippy
           ];
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
+          LD_LIBRARY_PATH = libPath;
         };
 
       formatter = pkgs.alejandra;
