@@ -10,7 +10,6 @@ pub mod state;
 fn main() {
     let mut state = State::default();
     if let Ok(program) = read_program_from_file(Path::new("./roms/programs/IBM Logo.ch8")) {
-        println!("load program ok");
         state.load_program(&program);
     }
 

@@ -64,9 +64,11 @@ impl State {
         let opcode =
             (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
         self.pc += 2;
-        let op = Operation::new(opcode);
-        println!("{:#06x} - {:?}", opcode, op);
-        op
+        if let Some(op) = Operation::new(opcode) {
+            op
+        } else {
+            self.next_operation()
+        }
     }
 
     pub fn update(&mut self, op: Operation) {

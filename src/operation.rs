@@ -19,7 +19,6 @@ pub enum Operation {
     Call {
         address: usize,
     },
-
     Return,
 
     Set {
@@ -163,108 +162,108 @@ fn nnn(opcode: u16) -> usize {
 }
 
 impl Operation {
-    pub fn new(opcode: u16) -> Self {
+    pub fn new(opcode: u16) -> Option<Self> {
         use Operation::*;
 
         let first_nibble = opcode & 0xF000;
         match first_nibble {
             0x0000 => match opcode {
-                0x00E0 => ClearScreen,
-                0x00EE => Return,
-                _ => unimplemented!("{:#x}", opcode),
+                0x00E0 => Some(ClearScreen),
+                0x00EE => Some(Return),
+                _ => None,
             },
             0x1000 => {
                 let address = nnn(opcode);
-                Jump { address }
+                Some(Jump { address })
             }
             0x3000 => {
                 let (x, value) = xnn(opcode);
-                SkipEqLiteral { x, value }
+                Some(SkipEqLiteral { x, value })
             }
             0x4000 => {
                 let (x, value) = xnn(opcode);
-                SkipNotEqLiteral { x, value }
+                Some(SkipNotEqLiteral { x, value })
             }
             0x5000 => {
                 let (x, y, _) = xyn(opcode);
-                SkipEq { x, y }
+                Some(SkipEq { x, y })
             }
             0x9000 => {
                 let (x, y, _) = xyn(opcode);
-                SkipNotEq { x, y }
+                Some(SkipNotEq { x, y })
             }
             0x6000 => {
                 let (destination, value) = xnn(opcode);
-                SetLiteral { destination, value }
+                Some(SetLiteral { destination, value })
             }
             0x7000 => {
                 let (destination, value) = xnn(opcode);
-                AddLiteral { destination, value }
+                Some(AddLiteral { destination, value })
             }
             0x8000 => {
                 let (lhs, rhs, op) = xyn(opcode);
                 match op {
-                    0 => Set {
+                    0 => Some(Set {
                         destination: lhs,
                         source: rhs,
-                    },
-                    0x1 => Or { lhs, rhs },
-                    0x2 => And { lhs, rhs },
-                    0x3 => Xor { lhs, rhs },
-                    0x4 => Add { lhs, rhs },
-                    0x5 => Sub { lhs, rhs },
-                    0x7 => Sub { lhs: rhs, rhs: lhs },
-                    0x6 => LeftShift { lhs, rhs },
-                    0xE => RightShift { lhs, rhs },
-                    _ => unimplemented!("{:#x}", opcode),
+                    }),
+                    0x1 => Some(Or { lhs, rhs }),
+                    0x2 => Some(And { lhs, rhs }),
+                    0x3 => Some(Xor { lhs, rhs }),
+                    0x4 => Some(Add { lhs, rhs }),
+                    0x5 => Some(Sub { lhs, rhs }),
+                    0x7 => Some(Sub { lhs: rhs, rhs: lhs }),
+                    0x6 => Some(LeftShift { lhs, rhs }),
+                    0xE => Some(RightShift { lhs, rhs }),
+                    _ => None,
                 }
             }
-            0xA000 => SetIndex {
+            0xA000 => Some(SetIndex {
                 source: nnn(opcode),
-            },
+            }),
 
             // TODO: Make this op's behaviour configurable.
-            0xB000 => JumpOffset {
+            0xB000 => Some(JumpOffset {
                 address: nnn(opcode),
                 offset_register: 0,
-            },
+            }),
 
             0xC000 => {
                 let (x, mask) = xnn(opcode);
-                Random { x, mask }
+                Some(Random { x, mask })
             }
 
             0xD000 => {
                 let (x, y, value) = xyn(opcode);
-                Draw { x, y, value }
+                Some(Draw { x, y, value })
             }
 
             0xE000 => {
                 let (key_register, op) = xnn(opcode);
                 match op {
-                    0x9E => SkipIfKey { key_register },
-                    0xA1 => SkipIfNotKey { key_register },
-                    _ => unimplemented!("{:#x}", opcode),
+                    0x9E => Some(SkipIfKey { key_register }),
+                    0xA1 => Some(SkipIfNotKey { key_register }),
+                    _ => None,
                 }
             }
 
             0xF000 => {
                 let (x, nn) = xnn(opcode);
                 match nn {
-                    0x07 => GetDelay { destination: x },
-                    0x15 => SetDelay { source: x },
-                    0x18 => SetSound { source: x },
-                    0x1E => AddIndex { source: x },
-                    0x0A => GetKey { destination: x },
-                    0x29 => SetIndexFont { source: x },
-                    0x33 => DecimalConversion { source: x },
-                    0x55 => StoreMemory { registers: x },
-                    0x65 => LoadMemory { registers: x },
-                    _ => unimplemented!("{:#x}", opcode),
+                    0x07 => Some(GetDelay { destination: x }),
+                    0x15 => Some(SetDelay { source: x }),
+                    0x18 => Some(SetSound { source: x }),
+                    0x1E => Some(AddIndex { source: x }),
+                    0x0A => Some(GetKey { destination: x }),
+                    0x29 => Some(SetIndexFont { source: x }),
+                    0x33 => Some(DecimalConversion { source: x }),
+                    0x55 => Some(StoreMemory { registers: x }),
+                    0x65 => Some(LoadMemory { registers: x }),
+                    _ => None,
                 }
             }
 
-            _ => todo!("Implement all operations"),
+            _ => None,
         }
     }
 }
