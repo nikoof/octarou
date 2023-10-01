@@ -55,10 +55,18 @@ impl State {
         }
     }
 
+    pub fn load_program(&mut self, program: &Vec<u8>) {
+        self.memory[0x200..0x200 + program.len()].copy_from_slice(&program);
+        self.pc = 0x200;
+    }
+
     pub fn next_operation(&mut self) -> Operation {
-        let opcode = (self.memory[self.pc] as u16) << 8 + self.memory[self.pc + 1] as u16;
+        let opcode =
+            (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
         self.pc += 2;
-        Operation::new(opcode)
+        let op = Operation::new(opcode);
+        println!("{:#06x} - {:?}", opcode, op);
+        op
     }
 
     pub fn update(&mut self, op: Operation) {

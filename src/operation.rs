@@ -171,7 +171,7 @@ impl Operation {
             0x0000 => match opcode {
                 0x00E0 => ClearScreen,
                 0x00EE => Return,
-                _ => unimplemented!(),
+                _ => unimplemented!("{:#x}", opcode),
             },
             0x1000 => {
                 let address = nnn(opcode);
@@ -216,7 +216,7 @@ impl Operation {
                     0x7 => Sub { lhs: rhs, rhs: lhs },
                     0x6 => LeftShift { lhs, rhs },
                     0xE => RightShift { lhs, rhs },
-                    _ => unimplemented!(),
+                    _ => unimplemented!("{:#x}", opcode),
                 }
             }
             0xA000 => SetIndex {
@@ -244,7 +244,7 @@ impl Operation {
                 match op {
                     0x9E => SkipIfKey { key_register },
                     0xA1 => SkipIfNotKey { key_register },
-                    _ => unimplemented!(),
+                    _ => unimplemented!("{:#x}", opcode),
                 }
             }
 
@@ -260,7 +260,7 @@ impl Operation {
                     0x33 => DecimalConversion { source: x },
                     0x55 => StoreMemory { registers: x },
                     0x65 => LoadMemory { registers: x },
-                    _ => unimplemented!(),
+                    _ => unimplemented!("{:#x}", opcode),
                 }
             }
 
