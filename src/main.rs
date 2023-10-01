@@ -9,6 +9,7 @@ fn main() {
 
     loop {
         let op = state.next_operation();
+        println!("{:?}", op);
         state.update(op);
     }
 }
