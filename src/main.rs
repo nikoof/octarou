@@ -13,7 +13,7 @@ fn main() {
         state.load_program(&program);
     }
 
-    loop {
+    while state.should_run() {
         let op = state.next_operation();
         state.update(op);
     }

@@ -1,4 +1,4 @@
-use crate::display::Display;
+use crate::display::{Display, HEIGHT, WIDTH};
 use crate::operation::Operation;
 
 const FONT: [u8; 80] = [
@@ -41,7 +41,7 @@ impl State {
             delay_timer: 0,
             sound_timer: 0,
             variables: [0; 16],
-            display: Display::new(),
+            display: Display::new().unwrap(),
         }
     }
 
@@ -60,6 +60,10 @@ impl State {
         self.pc = 0x200;
     }
 
+    pub fn should_run(&self) -> bool {
+        self.display.window.is_open()
+    }
+
     pub fn next_operation(&mut self) -> Operation {
         let opcode =
             (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
@@ -72,8 +76,41 @@ impl State {
     }
 
     pub fn update(&mut self, op: Operation) {
+        use Operation::*;
         match op {
+            ClearScreen => self.display.clear(),
+            Jump { address } => self.pc = address,
+            SetLiteral { destination, value } => self.variables[destination] = value,
+            AddLiteral { destination, value } => self.variables[destination] += value,
+            SetIndex { source } => self.index = source,
+            Draw {
+                x,
+                y,
+                sprite_height,
+            } => {
+                let x = self.variables[x] as usize % WIDTH;
+                let y = self.variables[y] as usize % HEIGHT;
+                self.variables[0xF] = 0;
+
+                for y_offset in 0..sprite_height {
+                    if y + y_offset >= HEIGHT {
+                        break;
+                    }
+                    let sprite_row = self.memory[self.index + y_offset];
+                    for x_offset in 0..8 {
+                        if x + x_offset >= WIDTH {
+                            break;
+                        }
+                        let pixel = (sprite_row >> (7 - x_offset)) & 1;
+                        let buffer_index = (y + y_offset) * WIDTH + (x + x_offset);
+                        self.display.buffer[buffer_index] ^= pixel as u32 * 0xffffff;
+                        self.variables[0xF] = pixel;
+                    }
+                }
+            }
             _ => (),
         }
+
+        self.display.update();
     }
 }

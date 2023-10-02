@@ -4,7 +4,7 @@ pub enum Operation {
     Draw {
         x: usize,
         y: usize,
-        value: u8,
+        sprite_height: usize,
     },
 
     Jump {
@@ -218,8 +218,12 @@ impl Operation {
             }
 
             0xD000 => {
-                let (x, y, value) = xyn(opcode);
-                Some(Draw { x, y, value })
+                let (x, y, sprite_height) = xyn(opcode);
+                Some(Draw {
+                    x,
+                    y,
+                    sprite_height: sprite_height as usize,
+                })
             }
 
             0xE000 => {
