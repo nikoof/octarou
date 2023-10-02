@@ -14,8 +14,7 @@ fn main() {
     }
 
     while state.should_run() {
-        let op = state.next_operation();
-        state.update(op);
+        state.tick();
     }
 }
 

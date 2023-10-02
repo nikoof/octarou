@@ -64,7 +64,13 @@ impl State {
         self.display.window.is_open()
     }
 
-    pub fn next_operation(&mut self) -> Operation {
+    pub fn tick(&mut self) {
+        let next_op = self.next_operation();
+        self.execute_operation(next_op);
+        self.display.update();
+    }
+
+    fn next_operation(&mut self) -> Operation {
         let opcode =
             (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
         self.pc += 2;
@@ -75,7 +81,7 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, op: Operation) {
+    fn execute_operation(&mut self, op: Operation) {
         use Operation::*;
         match op {
             ClearScreen => self.display.clear(),
@@ -110,7 +116,5 @@ impl State {
             }
             _ => (),
         }
-
-        self.display.update();
     }
 }
