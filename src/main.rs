@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::io::Read;
 use std::{fs::File, path::Path};
 
@@ -7,18 +8,20 @@ pub mod display;
 pub mod operation;
 pub mod state;
 
-fn main() {
-    let mut state = State::default();
-    if let Ok(program) = read_program_from_file(Path::new("./roms/programs/IBM Logo.ch8")) {
-        state.load_program(&program);
-    }
+fn main() -> Result<()> {
+    let mut state = State::default()?;
+
+    let program = read_program_from_file(Path::new("./roms/programs/IBM Logo.ch8"))?;
+    state.load_program(&program);
 
     while state.should_run() {
         state.tick();
     }
+
+    Ok(())
 }
 
-fn read_program_from_file(path: &Path) -> Result<Vec<u8>, std::io::Error> {
+fn read_program_from_file(path: &Path) -> Result<Vec<u8>> {
     let mut buf = Vec::new();
     let mut file = File::open(path)?;
     file.read_to_end(&mut buf)?;

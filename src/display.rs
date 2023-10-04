@@ -1,3 +1,4 @@
+use anyhow::Result;
 use minifb::{Scale, Window, WindowOptions};
 
 pub const WIDTH: usize = 64;
@@ -9,7 +10,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new() -> Result<Self, minifb::Error> {
+    pub fn new() -> Result<Self> {
         let window = Window::new(
             "chip8",
             WIDTH,

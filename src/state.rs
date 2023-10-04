@@ -1,5 +1,6 @@
 use crate::display::{Display, HEIGHT, WIDTH};
 use crate::operation::Operation;
+use anyhow::Result;
 
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -32,8 +33,8 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> Self {
-        Self {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
             memory: [0; 4096],
             pc: 0,
             index: 0,
@@ -41,18 +42,18 @@ impl State {
             delay_timer: 0,
             sound_timer: 0,
             variables: [0; 16],
-            display: Display::new().unwrap(),
-        }
+            display: Display::new()?,
+        })
     }
 
-    pub fn default() -> Self {
+    pub fn default() -> Result<Self> {
         let mut memory = [0u8; 4096];
         memory[0x50..=0x9F].copy_from_slice(&FONT);
 
-        Self {
+        Ok(Self {
             memory,
-            ..Self::new()
-        }
+            ..Self::new()?
+        })
     }
 
     pub fn load_program(&mut self, program: &Vec<u8>) {
