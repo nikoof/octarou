@@ -1,7 +1,9 @@
 use crate::display::{Display, HEIGHT, WIDTH};
 use crate::operation::Operation;
 use anyhow::Result;
+use rand::random;
 
+const FONT_ADDRESS: usize = 0x200;
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -25,7 +27,7 @@ pub struct State {
     memory: [u8; 4096],
     pc: usize,
     index: usize,
-    stack: Vec<u16>,
+    stack: Vec<usize>,
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
@@ -57,8 +59,8 @@ impl State {
     }
 
     pub fn load_program(&mut self, program: &Vec<u8>) {
-        self.memory[0x200..0x200 + program.len()].copy_from_slice(&program);
-        self.pc = 0x200;
+        self.memory[FONT_ADDRESS..FONT_ADDRESS + program.len()].copy_from_slice(&program);
+        self.pc = FONT_ADDRESS;
     }
 
     pub fn should_run(&self) -> bool {
@@ -87,9 +89,102 @@ impl State {
         match op {
             ClearScreen => self.display.clear(),
             Jump { address } => self.pc = address,
-            SetLiteral { destination, value } => self.variables[destination] = value,
-            AddLiteral { destination, value } => self.variables[destination] += value,
-            SetIndex { source } => self.index = source,
+            JumpOffset {
+                address,
+                offset_register: _,
+            } => {
+                self.pc = address;
+            }
+            SetLiteral { dest, value } => self.variables[dest] = value,
+            AddLiteral { dest, value } => {
+                self.variables[dest] = self.variables[dest].wrapping_add(value)
+            }
+            SetIndex { src } => self.index = src,
+            SetIndexFont { src } => {
+                let character = (self.variables[src] & 0x0F) as usize;
+                self.index = FONT_ADDRESS + character;
+            }
+            AddIndex { src } => {
+                let (res, overflow) = self.index.overflowing_add(self.variables[src] as usize);
+                self.index = res;
+                self.variables[0xF] = overflow as u8;
+            }
+            Call { address } => {
+                self.stack.push(self.pc);
+                self.pc = address;
+            }
+            Return => {
+                self.pc = self.stack.pop().expect("Don't pop out of main");
+            }
+            SkipEq { x, y } => {
+                if self.variables[x] == self.variables[y] {
+                    self.pc += 2;
+                }
+            }
+            SkipNotEq { x, y } => {
+                if self.variables[x] != self.variables[y] {
+                    self.pc += 2;
+                }
+            }
+            SkipEqLiteral { x, value } => {
+                if self.variables[x] == value {
+                    self.pc += 2;
+                }
+            }
+            SkipNotEqLiteral { x, value } => {
+                if self.variables[x] != value {
+                    self.pc += 2;
+                }
+            }
+            SkipIfKey { key_register } => {
+                unimplemented!("SkipIfKey");
+            }
+            SkipIfNotKey { key_register } => {
+                unimplemented!("SkipIfNotKey");
+            }
+            GetKey { dest } => {
+                unimplemented!("GetKey");
+            }
+            Set { dest, src } => {
+                self.variables[dest] = self.variables[src];
+            }
+            Or { lhs, rhs } => {
+                self.variables[lhs] |= self.variables[rhs];
+            }
+            And { lhs, rhs } => {
+                self.variables[lhs] &= self.variables[rhs];
+            }
+            Xor { lhs, rhs } => {
+                self.variables[lhs] ^= self.variables[rhs];
+            }
+            Add { lhs, rhs } => {
+                let (res, overflow) = self.variables[lhs].overflowing_add(self.variables[rhs]);
+                self.variables[lhs] = res;
+                self.variables[0xF] = overflow as u8;
+            }
+            Sub { lhs, rhs } => {
+                let (res, overflow) = self.variables[lhs].overflowing_sub(self.variables[rhs]);
+                self.variables[lhs] = res;
+                self.variables[0xF] = !overflow as u8;
+            }
+            // TODO: Make ambiguity configurable
+            LeftShift { lhs, rhs } => {
+                self.variables[0xF] = self.variables[lhs] & 0b1000_0000;
+                self.variables[lhs] <<= 1;
+            }
+            RightShift { lhs, rhs } => {
+                self.variables[0xF] = self.variables[lhs] & 0b0000_0001;
+                self.variables[lhs] >>= 1;
+            }
+            GetDelay { dest } => {
+                self.variables[dest] = self.delay_timer;
+            }
+            SetDelay { src } => {
+                self.delay_timer = self.variables[src];
+            }
+            SetSound { src } => {
+                self.sound_timer = self.variables[src];
+            }
             Draw {
                 x,
                 y,
@@ -115,7 +210,18 @@ impl State {
                     }
                 }
             }
-            _ => (),
+            Random { x, mask } => {
+                self.variables[x] = random::<u8>() & mask;
+            }
+            DecimalConversion { src } => {
+                unimplemented!("DecimalConversion");
+            }
+            StoreMemory { registers } => {
+                unimplemented!("StoreMemory");
+            }
+            LoadMemory { registers } => {
+                unimplemented!("LoadMemory")
+            }
         }
     }
 }

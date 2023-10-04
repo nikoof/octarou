@@ -22,12 +22,12 @@ pub enum Operation {
     Return,
 
     Set {
-        destination: usize,
-        source: usize,
+        dest: usize,
+        src: usize,
     },
 
     SetLiteral {
-        destination: usize,
+        dest: usize,
         value: u8,
     },
 
@@ -52,7 +52,7 @@ pub enum Operation {
     },
 
     AddLiteral {
-        destination: usize,
+        dest: usize,
         value: u8,
     },
 
@@ -72,11 +72,11 @@ pub enum Operation {
     },
 
     SetIndex {
-        source: usize,
+        src: usize,
     },
 
     AddIndex {
-        source: usize,
+        src: usize,
     },
 
     SkipEq {
@@ -108,27 +108,27 @@ pub enum Operation {
     },
 
     GetDelay {
-        destination: usize,
+        dest: usize,
     },
 
     SetDelay {
-        source: usize,
+        src: usize,
     },
 
     SetSound {
-        source: usize,
+        src: usize,
     },
 
     GetKey {
-        destination: usize,
+        dest: usize,
     },
 
     SetIndexFont {
-        source: usize,
+        src: usize,
     },
 
     DecimalConversion {
-        source: usize,
+        src: usize,
     },
 
     StoreMemory {
@@ -177,19 +177,19 @@ impl Operation {
                 Some(SkipNotEq { x, y })
             }
             0x6000 => {
-                let (destination, value) = xnn(opcode);
-                Some(SetLiteral { destination, value })
+                let (dest, value) = xnn(opcode);
+                Some(SetLiteral { dest, value })
             }
             0x7000 => {
-                let (destination, value) = xnn(opcode);
-                Some(AddLiteral { destination, value })
+                let (dest, value) = xnn(opcode);
+                Some(AddLiteral { dest, value })
             }
             0x8000 => {
                 let (lhs, rhs, op) = xyn(opcode);
                 match op {
                     0 => Some(Set {
-                        destination: lhs,
-                        source: rhs,
+                        dest: lhs,
+                        src: rhs,
                     }),
                     0x1 => Some(Or { lhs, rhs }),
                     0x2 => Some(And { lhs, rhs }),
@@ -202,9 +202,7 @@ impl Operation {
                     _ => None,
                 }
             }
-            0xA000 => Some(SetIndex {
-                source: nnn(opcode),
-            }),
+            0xA000 => Some(SetIndex { src: nnn(opcode) }),
 
             // TODO: Make this op's behaviour configurable.
             0xB000 => Some(JumpOffset {
@@ -238,13 +236,13 @@ impl Operation {
             0xF000 => {
                 let (x, nn) = xnn(opcode);
                 match nn {
-                    0x07 => Some(GetDelay { destination: x }),
-                    0x15 => Some(SetDelay { source: x }),
-                    0x18 => Some(SetSound { source: x }),
-                    0x1E => Some(AddIndex { source: x }),
-                    0x0A => Some(GetKey { destination: x }),
-                    0x29 => Some(SetIndexFont { source: x }),
-                    0x33 => Some(DecimalConversion { source: x }),
+                    0x07 => Some(GetDelay { dest: x }),
+                    0x15 => Some(SetDelay { src: x }),
+                    0x18 => Some(SetSound { src: x }),
+                    0x1E => Some(AddIndex { src: x }),
+                    0x0A => Some(GetKey { dest: x }),
+                    0x29 => Some(SetIndexFont { src: x }),
+                    0x33 => Some(DecimalConversion { src: x }),
                     0x55 => Some(StoreMemory { registers: x }),
                     0x65 => Some(LoadMemory { registers: x }),
                     _ => None,
