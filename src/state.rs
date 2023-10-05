@@ -156,17 +156,17 @@ where
                 }
             }
             SkipIfKey { key_register } => {
-                if self.keys[self.variables[key_register] as usize] {
+                if self.window.is_key_down(self.variables[key_register]) {
                     self.pc += 2;
                 }
             }
             SkipIfNotKey { key_register } => {
-                if !self.keys[self.variables[key_register] as usize] {
+                if !self.window.is_key_down(self.variables[key_register]) {
                     self.pc += 2;
                 }
             }
             GetKey { dest } => {
-                if let Some(key) = self.keys.iter().position(|&e| e) {
+                if let Some(key) = self.window.get_key() {
                     self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
@@ -233,7 +233,6 @@ where
                         let pixel = (sprite_row >> (7 - x_offset)) & 1;
                         let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
                         self.display[buffer_index] ^= pixel;
-                        // NOTE: Update display here to get live drawing effect
                         self.variables[0xF] = pixel;
                     }
                 }

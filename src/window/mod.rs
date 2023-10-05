@@ -7,5 +7,6 @@ pub trait Display {
 }
 
 pub trait Input {
-    fn get_keys(&self, keys: &mut [bool]);
+    fn is_key_down(&self, key: u8) -> bool;
+    fn get_key(&self) -> Option<u8>;
 }

@@ -47,13 +47,39 @@ fn keyval_to_key(key: u8) -> Option<Key> {
     }
 }
 
+fn key_to_keyval(key: &Key) -> Option<u8> {
+    use Key::*;
+    match key {
+        Key1 => Some(0x1),
+        Key2 => Some(0x2),
+        Key3 => Some(0x3),
+        Key4 => Some(0xC),
+
+        Q => Some(0x4),
+        W => Some(0x5),
+        E => Some(0x6),
+        R => Some(0xD),
+
+        A => Some(0x7),
+        S => Some(0x8),
+        D => Some(0x9),
+        F => Some(0xE),
+
+        Z => Some(0xA),
+        X => Some(0x0),
+        C => Some(0xB),
+        V => Some(0xF),
+
+        _ => None,
+    }
+}
+
 impl Input for Window {
-    fn get_keys(&self, keys: &mut [bool]) {
-        for key in 0u8..=0xF {
-            keys[key as usize] = self.is_key_pressed(
-                keyval_to_key(key).expect("All cases should be covered"),
-                KeyRepeat::No,
-            )
-        }
+    fn is_key_down(&self, keyval: u8) -> bool {
+        self.is_key_down(keyval_to_key(keyval).expect("Should not be called with bad keyval"))
+    }
+
+    fn get_key(&self) -> Option<u8> {
+        self.get_keys().iter().filter_map(key_to_keyval).nth(0)
     }
 }
