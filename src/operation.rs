@@ -160,6 +160,9 @@ impl Operation {
                 let address = nnn(opcode);
                 Some(Jump { address })
             }
+            0x2000 => Some(Call {
+                address: nnn(opcode),
+            }),
             0x3000 => {
                 let (x, value) = xnn(opcode);
                 Some(SkipEqLiteral { x, value })
@@ -187,7 +190,7 @@ impl Operation {
             0x8000 => {
                 let (lhs, rhs, op) = xyn(opcode);
                 match op {
-                    0 => Some(Set {
+                    0x0 => Some(Set {
                         dest: lhs,
                         src: rhs,
                     }),
