@@ -80,6 +80,9 @@ impl Input for Window {
     }
 
     fn get_key(&self) -> Option<u8> {
-        self.get_keys().iter().filter_map(key_to_keyval).nth(0)
+        self.get_keys_released()
+            .iter()
+            .filter_map(key_to_keyval)
+            .nth(0)
     }
 }

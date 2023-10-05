@@ -40,7 +40,6 @@ where
     sound_timer: u8,
     variables: [u8; 16],
     display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-    keys: [bool; 16],
     window: W,
 }
 
@@ -70,7 +69,6 @@ where
             sound_timer: 0,
             variables: [0; 16],
             display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-            keys: [false; 16],
             window: display,
         }
     }
@@ -86,8 +84,14 @@ where
     pub fn tick(&mut self) {
         let next_op = self.next_operation();
         self.execute_operation(next_op);
+        self.update_timers();
         self.window
             .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    }
+
+    fn update_timers(&mut self) {
+        self.delay_timer = self.delay_timer.saturating_sub(1);
+        self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
     fn next_operation(&mut self) -> Operation {
