@@ -162,9 +162,9 @@ impl State {
                 self.variables[lhs] = res;
                 self.variables[0xF] = overflow as u8;
             }
-            Sub { lhs, rhs } => {
+            Sub { lhs, rhs, dest } => {
                 let (res, overflow) = self.variables[lhs].overflowing_sub(self.variables[rhs]);
-                self.variables[lhs] = res;
+                self.variables[dest] = res;
                 self.variables[0xF] = !overflow as u8;
             }
             // TODO: Make ambiguity configurable

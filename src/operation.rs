@@ -59,6 +59,7 @@ pub enum Operation {
     Sub {
         lhs: usize,
         rhs: usize,
+        dest: usize,
     },
 
     LeftShift {
@@ -198,8 +199,16 @@ impl Operation {
                     0x2 => Some(And { lhs, rhs }),
                     0x3 => Some(Xor { lhs, rhs }),
                     0x4 => Some(Add { lhs, rhs }),
-                    0x5 => Some(Sub { lhs, rhs }),
-                    0x7 => Some(Sub { lhs: rhs, rhs: lhs }),
+                    0x5 => Some(Sub {
+                        lhs,
+                        rhs,
+                        dest: lhs,
+                    }),
+                    0x7 => Some(Sub {
+                        lhs: rhs,
+                        rhs: lhs,
+                        dest: lhs,
+                    }),
                     0x6 => Some(LeftShift { lhs, rhs }),
                     0xE => Some(RightShift { lhs, rhs }),
                     _ => None,
