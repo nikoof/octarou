@@ -10,7 +10,7 @@ pub mod state;
 pub mod window;
 
 fn main() -> Result<()> {
-    let mut window = Window::new(
+    let window = Window::new(
         "chip8",
         640,
         320,
@@ -21,11 +21,10 @@ fn main() -> Result<()> {
         },
     )
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
-    window.limit_update_rate(Some(std::time::Duration::from_secs(1 / 60)));
 
-    let mut state = State::new(window);
+    let mut state = State::new(window, 1000.0);
 
-    let program = read_program_from_file(Path::new("./tests/bin/6-keypad.ch8"))?;
+    let program = read_program_from_file(Path::new("./tests/bin/4-flags.ch8"))?;
     state.load_program(&program);
 
     while state.display_open() {

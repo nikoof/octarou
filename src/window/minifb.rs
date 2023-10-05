@@ -1,9 +1,14 @@
 use super::{Display, Input};
-use minifb::{Key, KeyRepeat, Window};
+use minifb::{Key, Window};
+use std::time::Duration;
 
 impl Display for Window {
     fn is_open(&self) -> bool {
         self.is_open()
+    }
+
+    fn set_update_rate(&mut self, rate: f64) {
+        self.limit_update_rate(Some(Duration::from_secs_f64(1.0 / rate)));
     }
 
     fn update_buffer(&mut self, buffer: &[u8], width: usize, height: usize) {

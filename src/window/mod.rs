@@ -2,6 +2,7 @@ mod minifb;
 
 pub trait Display {
     fn is_open(&self) -> bool;
+    fn set_update_rate(&mut self, rate: f64);
     fn update_buffer(&mut self, new_buffer: &[u8], width: usize, height: usize);
     fn update(&mut self);
 }

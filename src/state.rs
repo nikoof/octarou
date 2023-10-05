@@ -3,6 +3,7 @@ use crate::{
     window::{Display, Input},
 };
 use rand::random;
+use std::time::{Duration, Instant};
 
 const PROGRAM_ADDRESS: usize = 0x200;
 const FONT_ADDRESS: usize = 0x50;
@@ -40,6 +41,7 @@ where
     sound_timer: u8,
     variables: [u8; 16],
     display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+    speed: f64,
     window: W,
 }
 
@@ -48,7 +50,9 @@ where
     W: Display + Input + Default,
 {
     fn default() -> Self {
-        Self::new(W::default())
+        let mut window = W::default();
+        window.set_update_rate(60.0);
+        Self::new(window, 700.0)
     }
 }
 
@@ -56,9 +60,11 @@ impl<W> State<W>
 where
     W: Display + Input,
 {
-    pub fn new(display: W) -> Self {
+    pub fn new(mut display: W, speed: f64) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
+
+        display.set_update_rate(60.0);
 
         Self {
             memory,
@@ -69,6 +75,7 @@ where
             sound_timer: 0,
             variables: [0; 16],
             display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            speed,
             window: display,
         }
     }
@@ -82,11 +89,36 @@ where
     }
 
     pub fn tick(&mut self) {
-        let next_op = self.next_operation();
-        self.execute_operation(next_op);
-        self.update_timers();
         self.window
             .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+        let total_time = Duration::from_secs_f64(1.0 / self.speed);
+        let t0 = Instant::now();
+
+        let t1 = Instant::now();
+        loop {
+            let timers_time = Duration::from_secs_f64(1.0 / 60.0);
+            self.update_timers();
+
+            let dt = Instant::now() - t1;
+            if dt < timers_time {
+                std::thread::sleep(timers_time - dt)
+            }
+
+            if dt > timers_time {
+                break;
+            }
+        }
+
+        let next_op = self.next_operation();
+        self.execute_operation(next_op);
+
+        let t2 = Instant::now();
+
+        let real_time = t2 - t0;
+        if real_time < total_time {
+            std::thread::sleep(total_time - real_time)
+        }
     }
 
     fn update_timers(&mut self) {
