@@ -232,12 +232,14 @@ where
             }
             // TODO: Make ambiguity configurable
             LeftShift { lhs, rhs } => {
-                self.variables[0xF] = self.variables[lhs] & 0b1000_0000;
+                let flag = self.variables[lhs] >> 7;
                 self.variables[lhs] <<= 1;
+                self.variables[0xF] = flag;
             }
             RightShift { lhs, rhs } => {
-                self.variables[0xF] = self.variables[lhs] & 0b0000_0001;
+                let flag = self.variables[lhs] & 1;
                 self.variables[lhs] >>= 1;
+                self.variables[0xF] = flag;
             }
             GetDelay { dest } => {
                 self.variables[dest] = self.delay_timer;

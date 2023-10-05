@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     )
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
 
-    let mut state = State::new(window, 1000.0);
+    let mut state = State::new(window, 100000.0);
 
     let program = read_program_from_file(Path::new("./tests/bin/4-flags.ch8"))?;
     state.load_program(&program);
