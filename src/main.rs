@@ -1,20 +1,32 @@
 use anyhow::Result;
+use minifb::{ScaleMode, Window, WindowOptions};
 use std::io::Read;
 use std::{fs::File, path::Path};
 
 use state::State;
 
-pub mod display;
 pub mod operation;
 pub mod state;
+pub mod window;
 
 fn main() -> Result<()> {
-    let mut state = State::default()?;
+    let window = Window::new(
+        "chip8",
+        640,
+        320,
+        WindowOptions {
+            resize: true,
+            scale_mode: ScaleMode::AspectRatioStretch,
+            ..WindowOptions::default()
+        },
+    )
+    .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
+    let mut state = State::new(window);
 
-    let program = read_program_from_file(Path::new("./roms/programs/IBM Logo.ch8"))?;
+    let program = read_program_from_file(Path::new("./tests/bin/3-corax+.ch8"))?;
     state.load_program(&program);
 
-    while state.should_run() {
+    while state.display_open() {
         state.tick();
     }
 

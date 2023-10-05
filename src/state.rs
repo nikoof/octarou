@@ -1,9 +1,11 @@
-use crate::display::{Display, HEIGHT, WIDTH};
-use crate::operation::Operation;
-use anyhow::Result;
+use crate::{
+    operation::Operation,
+    window::{Display, Input},
+};
 use rand::random;
 
-const FONT_ADDRESS: usize = 0x200;
+const PROGRAM_ADDRESS: usize = 0x200;
+const FONT_ADDRESS: usize = 0x50;
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -23,7 +25,13 @@ const FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 
-pub struct State {
+const DISPLAY_WIDTH: usize = 64;
+const DISPLAY_HEIGHT: usize = 32;
+
+pub struct State<W>
+where
+    W: Display + Input,
+{
     memory: [u8; 4096],
     pc: usize,
     index: usize,
@@ -31,46 +39,55 @@ pub struct State {
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
-    display: Display,
+    display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+    keys: [bool; 16],
+    window: W,
 }
 
-impl State {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
-            memory: [0; 4096],
-            pc: 0,
+impl<W> Default for State<W>
+where
+    W: Display + Input + Default,
+{
+    fn default() -> Self {
+        Self::new(W::default())
+    }
+}
+
+impl<W> State<W>
+where
+    W: Display + Input,
+{
+    pub fn new(display: W) -> Self {
+        let mut memory = [0u8; 4096];
+        memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
+
+        Self {
+            memory,
+            pc: PROGRAM_ADDRESS,
             index: 0,
             stack: vec![],
             delay_timer: 0,
             sound_timer: 0,
             variables: [0; 16],
-            display: Display::new()?,
-        })
-    }
-
-    pub fn default() -> Result<Self> {
-        let mut memory = [0u8; 4096];
-        memory[0x50..=0x9F].copy_from_slice(&FONT);
-
-        Ok(Self {
-            memory,
-            ..Self::new()?
-        })
+            display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            keys: [false; 16],
+            window: display,
+        }
     }
 
     pub fn load_program(&mut self, program: &Vec<u8>) {
-        self.memory[FONT_ADDRESS..FONT_ADDRESS + program.len()].copy_from_slice(&program);
-        self.pc = FONT_ADDRESS;
+        self.memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(&program);
     }
 
-    pub fn should_run(&self) -> bool {
-        self.display.window.is_open()
+    pub fn display_open(&self) -> bool {
+        self.window.is_open()
     }
 
     pub fn tick(&mut self) {
         let next_op = self.next_operation();
         self.execute_operation(next_op);
-        self.display.update();
+        self.window
+            .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
     }
 
     fn next_operation(&mut self) -> Operation {
@@ -78,8 +95,10 @@ impl State {
             (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
         self.pc += 2;
         if let Some(op) = Operation::new(opcode) {
+            // println!("Parsed opcode: {:#06x} into: ${:?}", opcode, op);
             op
         } else {
+            // println!("Unknown opcode: {:#06x}", opcode);
             self.next_operation()
         }
     }
@@ -87,7 +106,7 @@ impl State {
     fn execute_operation(&mut self, op: Operation) {
         use Operation::*;
         match op {
-            ClearScreen => self.display.clear(),
+            ClearScreen => self.display.fill(0),
             Jump { address } => self.pc = address,
             JumpOffset {
                 address,
@@ -137,13 +156,21 @@ impl State {
                 }
             }
             SkipIfKey { key_register } => {
-                unimplemented!("SkipIfKey");
+                if self.keys[self.variables[key_register] as usize] {
+                    self.pc += 2;
+                }
             }
             SkipIfNotKey { key_register } => {
-                unimplemented!("SkipIfNotKey");
+                if !self.keys[self.variables[key_register] as usize] {
+                    self.pc += 2;
+                }
             }
             GetKey { dest } => {
-                unimplemented!("GetKey");
+                if let Some(key) = self.keys.iter().position(|&e| e) {
+                    self.variables[dest] = key as u8;
+                } else {
+                    self.pc -= 2;
+                }
             }
             Set { dest, src } => {
                 self.variables[dest] = self.variables[src];
@@ -190,22 +217,23 @@ impl State {
                 y,
                 sprite_height,
             } => {
-                let x = self.variables[x] as usize % WIDTH;
-                let y = self.variables[y] as usize % HEIGHT;
+                let x = self.variables[x] as usize % DISPLAY_WIDTH;
+                let y = self.variables[y] as usize % DISPLAY_HEIGHT;
                 self.variables[0xF] = 0;
 
                 for y_offset in 0..sprite_height {
-                    if y + y_offset >= HEIGHT {
+                    if y + y_offset >= DISPLAY_HEIGHT {
                         break;
                     }
                     let sprite_row = self.memory[self.index + y_offset];
                     for x_offset in 0..8 {
-                        if x + x_offset >= WIDTH {
+                        if x + x_offset >= DISPLAY_WIDTH {
                             break;
                         }
                         let pixel = (sprite_row >> (7 - x_offset)) & 1;
-                        let buffer_index = (y + y_offset) * WIDTH + (x + x_offset);
-                        self.display.buffer[buffer_index] ^= pixel as u32 * 0xffffff;
+                        let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
+                        self.display[buffer_index] ^= pixel;
+                        // NOTE: Update display here to get live drawing effect
                         self.variables[0xF] = pixel;
                     }
                 }
@@ -214,13 +242,22 @@ impl State {
                 self.variables[x] = random::<u8>() & mask;
             }
             DecimalConversion { src } => {
-                unimplemented!("DecimalConversion");
+                let mut n = self.variables[src];
+
+                for i in (0..3).rev() {
+                    self.memory[self.index + i] = n % 10;
+                    n /= 10;
+                }
             }
             StoreMemory { registers } => {
-                unimplemented!("StoreMemory");
+                for i in 0..=registers {
+                    self.memory[self.index + i] = self.variables[i];
+                }
             }
             LoadMemory { registers } => {
-                unimplemented!("LoadMemory")
+                for i in 0..=registers {
+                    self.variables[i] = self.memory[self.index + i];
+                }
             }
         }
     }
