@@ -7,8 +7,8 @@ impl Display for Window {
         self.is_open()
     }
 
-    fn set_update_rate(&mut self, rate: f64) {
-        self.limit_update_rate(Some(Duration::from_secs_f64(1.0 / rate)));
+    fn set_update_rate(&mut self, rate: u64) {
+        self.limit_update_rate(Some(Duration::from_nanos(1_000_000_000 / rate)));
     }
 
     fn update_buffer(&mut self, buffer: &[u8], width: usize, height: usize) {

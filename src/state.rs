@@ -29,6 +29,8 @@ const FONT: [u8; 80] = [
 const DISPLAY_WIDTH: usize = 64;
 const DISPLAY_HEIGHT: usize = 32;
 
+const DEFAULT_SPEED: u64 = 700;
+
 pub struct State<W>
 where
     W: Display + Input,
@@ -41,7 +43,7 @@ where
     sound_timer: u8,
     variables: [u8; 16],
     display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-    speed: f64,
+    speed: u64,
     window: W,
 }
 
@@ -51,8 +53,8 @@ where
 {
     fn default() -> Self {
         let mut window = W::default();
-        window.set_update_rate(60.0);
-        Self::new(window, 700.0)
+        window.set_update_rate(DEFAULT_SPEED);
+        Self::new(window, DEFAULT_SPEED)
     }
 }
 
@@ -60,11 +62,11 @@ impl<W> State<W>
 where
     W: Display + Input,
 {
-    pub fn new(mut display: W, speed: f64) -> Self {
+    pub fn new(mut display: W, speed: u64) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
 
-        display.set_update_rate(60.0);
+        display.set_update_rate(speed);
 
         Self {
             memory,
@@ -89,35 +91,32 @@ where
     }
 
     pub fn tick(&mut self) {
-        self.window
-            .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
+        let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
 
-        let total_time = Duration::from_secs_f64(1.0 / self.speed);
-        let t0 = Instant::now();
+        let now = Instant::now();
+        let mut total_elapsed = Duration::from_secs(0);
 
-        let t1 = Instant::now();
-        loop {
-            let timers_time = Duration::from_secs_f64(1.0 / 60.0);
-            self.update_timers();
+        self.update_timers();
 
-            let dt = Instant::now() - t1;
-            if dt < timers_time {
-                std::thread::sleep(timers_time - dt)
+        'cpu: loop {
+            let next_op = self.next_operation();
+            self.execute_operation(next_op);
+            self.window
+                .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+            let cpu_elapsed = now.elapsed() - total_elapsed;
+            total_elapsed += cpu_elapsed;
+
+            if cpu_elapsed < cpu_cycle_duration {
+                let time_left = cpu_cycle_duration - cpu_elapsed;
+                total_elapsed += time_left;
+                std::thread::sleep(time_left);
             }
 
-            if dt > timers_time {
-                break;
+            if total_elapsed >= timer_cycle_duration {
+                break 'cpu;
             }
-        }
-
-        let next_op = self.next_operation();
-        self.execute_operation(next_op);
-
-        let t2 = Instant::now();
-
-        let real_time = t2 - t0;
-        if real_time < total_time {
-            std::thread::sleep(total_time - real_time)
         }
     }
 
