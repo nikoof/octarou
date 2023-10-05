@@ -209,8 +209,8 @@ impl Operation {
                         rhs: lhs,
                         dest: lhs,
                     }),
-                    0x6 => Some(LeftShift { lhs, rhs }),
-                    0xE => Some(RightShift { lhs, rhs }),
+                    0x6 => Some(RightShift { lhs, rhs }),
+                    0xE => Some(LeftShift { lhs, rhs }),
                     _ => None,
                 }
             }
