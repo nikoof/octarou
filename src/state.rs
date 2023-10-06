@@ -4,7 +4,10 @@ use crate::{
 };
 use anyhow::{anyhow, Result};
 use rand::random;
-use std::time::{Duration, Instant};
+use std::{
+    slice,
+    time::{Duration, Instant},
+};
 
 const PROGRAM_ADDRESS: usize = 0x200;
 const FONT_ADDRESS: usize = 0x50;
@@ -55,7 +58,7 @@ where
     fn default() -> Self {
         let mut window = W::default();
         window.set_update_rate(DEFAULT_SPEED);
-        Self::new(window, DEFAULT_SPEED)
+        Self::new(window, DEFAULT_SPEED, None)
     }
 }
 
@@ -63,11 +66,14 @@ impl<W> State<W>
 where
     W: Display + Input,
 {
-    pub fn new(mut display: W, speed: u64) -> Self {
+    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
+        display.set_update_rate(speed);
+
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
-
-        display.set_update_rate(speed);
+        if let Some(program) = program {
+            memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
+        }
 
         Self {
             memory,
@@ -81,10 +87,6 @@ where
             speed,
             window: display,
         }
-    }
-
-    pub fn load_program(&mut self, program: &Vec<u8>) {
-        self.memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(&program);
     }
 
     pub fn display_open(&self) -> bool {

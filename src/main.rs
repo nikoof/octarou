@@ -30,10 +30,8 @@ fn main() -> Result<()> {
     )
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
 
-    let mut state = State::new(window, args.cpu_speed);
-
     let program = read_program_from_file(args.program.as_path())?;
-    state.load_program(&program);
+    let mut state = State::new(window, args.cpu_speed, Some(&program));
 
     while state.display_open() {
         state.tick()?;
