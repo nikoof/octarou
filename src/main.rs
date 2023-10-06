@@ -24,11 +24,11 @@ fn main() -> Result<()> {
 
     let mut state = State::new(window, 700);
 
-    let program = read_program_from_file(Path::new("./tests/bin/6-keypad.ch8"))?;
+    let program = read_program_from_file(Path::new("./roms/games/Tic-Tac-Toe [David Winter].ch8"))?;
     state.load_program(&program);
 
     while state.display_open() {
-        state.tick();
+        state.tick()?;
     }
 
     Ok(())

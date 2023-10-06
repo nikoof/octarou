@@ -2,6 +2,7 @@ use crate::{
     operation::Operation,
     window::{Display, Input},
 };
+use anyhow::{anyhow, Result};
 use rand::random;
 use std::time::{Duration, Instant};
 
@@ -90,7 +91,7 @@ where
         self.window.is_open()
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self) -> Result<()> {
         let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
 
@@ -100,7 +101,7 @@ where
         self.update_timers();
 
         'cpu: loop {
-            let next_op = self.next_operation();
+            let next_op = self.next_operation()?;
             self.execute_operation(next_op);
             self.window
                 .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
@@ -118,6 +119,8 @@ where
                 break 'cpu;
             }
         }
+
+        Ok(())
     }
 
     fn update_timers(&mut self) {
@@ -125,17 +128,11 @@ where
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
-    fn next_operation(&mut self) -> Operation {
-        let opcode =
-            (self.memory[self.pc] as u16).checked_shl(8).unwrap() + self.memory[self.pc + 1] as u16;
+    fn next_operation(&mut self) -> Result<Operation> {
+        let opcode = self.memory[self.pc..self.pc + 2].try_into()?;
+        let opcode = u16::from_be_bytes(opcode);
         self.pc += 2;
-        if let Some(op) = Operation::new(opcode) {
-            // println!("Parsed opcode: {:#06x} into: ${:?}", opcode, op);
-            op
-        } else {
-            // println!("Unknown opcode: {:#06x}", opcode);
-            self.next_operation()
-        }
+        Operation::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
     fn execute_operation(&mut self, op: Operation) {
