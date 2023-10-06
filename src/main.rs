@@ -1,19 +1,27 @@
 use anyhow::Result;
+use clap::Parser;
 use minifb::{ScaleMode, Window, WindowOptions};
 use std::io::Read;
 use std::{fs::File, path::Path};
 
+use args::Args;
 use state::State;
 
+pub mod args;
 pub mod operation;
 pub mod state;
 pub mod window;
 
 fn main() -> Result<()> {
+    let args = Args::parse();
+
     let window = Window::new(
-        "chip8",
-        640,
-        320,
+        match args.program.file_name() {
+            Some(s) => s.to_str().unwrap_or("CHIP-8"),
+            None => "CHIP-8",
+        },
+        args.window_width,
+        args.window_height,
         WindowOptions {
             resize: true,
             scale_mode: ScaleMode::AspectRatioStretch,
@@ -22,9 +30,9 @@ fn main() -> Result<()> {
     )
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
 
-    let mut state = State::new(window, 700);
+    let mut state = State::new(window, args.cpu_speed);
 
-    let program = read_program_from_file(Path::new("./roms/games/Tic-Tac-Toe [David Winter].ch8"))?;
+    let program = read_program_from_file(args.program.as_path())?;
     state.load_program(&program);
 
     while state.display_open() {
