@@ -5,11 +5,10 @@ use std::io::Read;
 use std::{fs::File, path::Path};
 
 use args::Args;
-use state::State;
+use chip8::state::State;
 
 pub mod args;
-pub mod operation;
-pub mod state;
+pub mod chip8;
 pub mod window;
 
 fn main() -> Result<()> {

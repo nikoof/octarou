@@ -1,13 +1,7 @@
-use crate::{
-    operation::Operation,
-    window::{Display, Input},
-};
+use super::operation::Operation;
+use crate::window::{Display, Input};
 use anyhow::{anyhow, Result};
-use rand::random;
-use std::{
-    slice,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 const PROGRAM_ADDRESS: usize = 0x200;
 const FONT_ADDRESS: usize = 0x50;
@@ -274,7 +268,7 @@ where
                 }
             }
             Random { x, mask } => {
-                self.variables[x] = random::<u8>() & mask;
+                self.variables[x] = rand::random::<u8>() & mask;
             }
             DecimalConversion { src } => {
                 let mut n = self.variables[src];
