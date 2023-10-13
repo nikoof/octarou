@@ -262,8 +262,8 @@ where
                         }
                         let pixel = (sprite_row >> (7 - x_offset)) & 1;
                         let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
+                        self.variables[0xF] |= self.display[buffer_index] & pixel;
                         self.display[buffer_index] ^= pixel;
-                        self.variables[0xF] = pixel;
                     }
                 }
             }
