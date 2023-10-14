@@ -1,13 +1,22 @@
 # CHIP8
 This is a CHIP-8 interpreter for my high-school CS final project.
 
-# Usage
+# Building with Nix
+## Unix-likes
 Run using Nix.
 ```shell
 $ nix run github:Nikoof/chip8 -- --help
 ```
 
-Alternatively, you can pull and compile the project manually.
+## Windows
+Since Nix doesn't support Windows, you have to cross-compile for Windows on a Linux host.
+```shell
+$ nix build github:Nikoof/chip8#windowsCross
+```
+The resulting binary at `result/bin/chip8.exe` can be run with Wine or natively on Windows.
+
+# Building manually
+Alternatively, you can pull and compile the project manually on all platforms.
 ```shell
 $ git clone git@github.com:Nikoof/chip8 && cd chip8
 $ cargo run --release -- --help
