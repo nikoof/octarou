@@ -24,7 +24,20 @@
           xorg.libXi
         ];
     in {
-      defaultPackage = naersk-lib.buildPackage ./.;
+      defaultPackage = with pkgs;
+        naersk-lib.buildPackage rec {
+          src = ./.;
+          pname = "chip8";
+          nativeBuildInputs = [
+            makeWrapper
+          ];
+
+          postInstall = ''
+            wrapProgram "$out/bin/${pname}" --prefix LD_LIBRARY_PATH : "${libPath}"
+          '';
+
+          LD_LIBRARY_PATH = libPath;
+        };
 
       devShell = with pkgs;
         mkShell {
