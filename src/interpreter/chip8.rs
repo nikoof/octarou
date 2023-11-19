@@ -1,4 +1,4 @@
-use super::{operation::Operation, Interpreter};
+use super::{instruction::Instruction, Interpreter};
 use crate::window::{Display, Input};
 use anyhow::{anyhow, Result};
 use std::time::{Duration, Instant};
@@ -74,8 +74,8 @@ where
         self.update_timers();
 
         'cpu: loop {
-            let next_op = self.next_operation()?;
-            self.execute_operation(next_op);
+            let next_instruction = self.next_instruction()?;
+            self.execute_instruction(next_instruction);
             self.window
                 .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
@@ -129,16 +129,16 @@ where
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
-    fn next_operation(&mut self) -> Result<Operation> {
+    fn next_instruction(&mut self) -> Result<Instruction> {
         let opcode = self.memory[self.pc..self.pc + 2].try_into()?;
         let opcode = u16::from_be_bytes(opcode);
         self.pc += 2;
-        Operation::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
+        Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_operation(&mut self, op: Operation) {
-        use Operation::*;
-        match op {
+    fn execute_instruction(&mut self, instruction: Instruction) {
+        use Instruction::*;
+        match instruction {
             ClearScreen => self.display.fill(0),
             Jump { address } => self.pc = address,
             JumpOffset {

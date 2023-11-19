@@ -1,5 +1,5 @@
 mod chip8;
-mod operation;
+mod instruction;
 mod schip;
 
 use anyhow::Result;

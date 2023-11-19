@@ -1,5 +1,5 @@
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum Operation {
+pub enum Instruction {
     ClearScreen,
     Draw {
         x: usize,
@@ -146,9 +146,9 @@ pub enum Operation {
     },
 }
 
-impl Operation {
+impl Instruction {
     pub fn new(opcode: u16) -> Option<Self> {
-        use Operation::*;
+        use Instruction::*;
 
         let first_nibble = opcode & 0xF000;
         match first_nibble {
