@@ -5,10 +5,10 @@ use std::io::Read;
 use std::{fs::File, path::Path};
 
 use args::Args;
-use chip8::state::State;
+use interpreter::{Chip8, Interpreter};
 
 pub mod args;
-pub mod chip8;
+pub mod interpreter;
 pub mod window;
 
 fn main() -> Result<()> {
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
 
     let program = read_program_from_file(args.program.as_path())?;
-    let mut state = State::new(window, args.cpu_speed, Some(&program));
+    let mut state = Chip8::new(window, args.cpu_speed, Some(&program));
 
     while state.display_open() {
         state.tick()?;

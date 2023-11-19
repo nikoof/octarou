@@ -1,4 +1,4 @@
-use super::operation::Operation;
+use super::{operation::Operation, Interpreter};
 use crate::window::{Display, Input};
 use anyhow::{anyhow, Result};
 use std::time::{Duration, Instant};
@@ -29,7 +29,7 @@ const DISPLAY_HEIGHT: usize = 32;
 
 const DEFAULT_SPEED: u64 = 700;
 
-pub struct State<W>
+pub struct Chip8<W>
 where
     W: Display + Input,
 {
@@ -45,7 +45,7 @@ where
     window: W,
 }
 
-impl<W> Default for State<W>
+impl<W> Default for Chip8<W>
 where
     W: Display + Input + Default,
 {
@@ -56,38 +56,15 @@ where
     }
 }
 
-impl<W> State<W>
+impl<W> Interpreter for Chip8<W>
 where
     W: Display + Input,
 {
-    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
-        display.set_update_rate(speed);
-
-        let mut memory = [0u8; 4096];
-        memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
-        if let Some(program) = program {
-            memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
-        }
-
-        Self {
-            memory,
-            pc: PROGRAM_ADDRESS,
-            index: 0,
-            stack: vec![],
-            delay_timer: 0,
-            sound_timer: 0,
-            variables: [0; 16],
-            display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
-            speed,
-            window: display,
-        }
-    }
-
-    pub fn display_open(&self) -> bool {
+    fn display_open(&self) -> bool {
         self.window.is_open()
     }
 
-    pub fn tick(&mut self) -> Result<()> {
+    fn tick(&mut self) -> Result<()> {
         let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
 
@@ -117,6 +94,34 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<W> Chip8<W>
+where
+    W: Display + Input,
+{
+    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
+        display.set_update_rate(speed);
+
+        let mut memory = [0u8; 4096];
+        memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
+        if let Some(program) = program {
+            memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
+        }
+
+        Self {
+            memory,
+            pc: PROGRAM_ADDRESS,
+            index: 0,
+            stack: vec![],
+            delay_timer: 0,
+            sound_timer: 0,
+            variables: [0; 16],
+            display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            speed,
+            window: display,
+        }
     }
 
     fn update_timers(&mut self) {
