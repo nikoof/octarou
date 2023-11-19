@@ -154,7 +154,7 @@ where
             SetIndex { src } => self.index = src,
             SetIndexFont { src } => {
                 let character = (self.variables[src] & 0x0F) as usize;
-                self.index = FONT_ADDRESS + character;
+                self.index = FONT_ADDRESS + 5 * character;
             }
             AddIndex { src } => {
                 let (res, overflow) = self.index.overflowing_add(self.variables[src] as usize);
