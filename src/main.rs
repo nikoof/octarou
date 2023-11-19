@@ -4,8 +4,8 @@ use minifb::{ScaleMode, Window, WindowOptions};
 use std::io::Read;
 use std::{fs::File, path::Path};
 
-use args::Args;
-use interpreter::{Chip8, Interpreter};
+use args::{Args, Variant};
+use interpreter::{Chip8, Interpreter, Schip};
 
 pub mod args;
 pub mod interpreter;
@@ -30,7 +30,10 @@ fn main() -> Result<()> {
     .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
 
     let program = read_program_from_file(args.program.as_path())?;
-    let mut state = Chip8::new(window, args.cpu_speed, Some(&program));
+    let mut state: Box<dyn Interpreter> = match args.variant {
+        Variant::Chip8 => Box::new(Chip8::new(window, args.cpu_speed, Some(&program))),
+        Variant::Schip => Box::new(Schip::new(window, args.cpu_speed, Some(&program))),
+    };
 
     while state.display_open() {
         state.tick()?;
