@@ -1,15 +1,20 @@
-name: "Build legacy Nix package on Ubuntu"
+name: "Nix Build"
 
 on:
+  pull_request:
   push:
     branches:
       - main
 
 jobs:
   build:
+    name: Build nix targets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: cachix/install-nix-action@v12
-      - name: Building package
-        run: nix-build . -A defaultPackage.x86_64-linux
+      - uses: actions/checkout@v3
+      - name: Check Nix flake inputs
+        uses: DeterminateSystems/flake-checker-action@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v3
+      - name: Build default package
+        run: nix build
