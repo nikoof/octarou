@@ -6,6 +6,25 @@ A cross-platform CHIP-8 interpreter. The interpreter's behaviour is controlled v
 The interpreter fully implements the original COSMAC VIP CHIP-8 instruction set.
 I am currently planning to also add support for SUPER-CHIP (and maybe XO-CHIP).
 
+# Usage
+```
+$ chip8 --help
+Usage: chip8 [OPTIONS] <PROGRAM>
+
+Arguments:
+  <PROGRAM>  Path to a file containing a CHIP-8 program
+
+Options:
+  -v, --variant <VARIANT>              CHIP-8 variant to interpret [default: chip8] [possible values: chip8, schip]
+  -W, --window-width <WINDOW_WIDTH>    Window width [default: 640]
+  -H, --window-height <WINDOW_HEIGHT>  Window height [default: 320]
+  -s, --cpu-speed <CPU_SPEED>          Speed of CPU (in CH8-ops/second) [default: 700]
+  -h, --help                           Print help
+  -V, --version                        Print version
+```
+
+The `-v`/`--variant` argument is used to select which CHIP-8 variant should be interpreted. It is currently impossible to selectively toggle specific quirks, though this may be added in the future.
+
 # Building with Nix
 The project can be built using Nix flakes.
 
