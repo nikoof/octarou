@@ -1,3 +1,6 @@
+// Copyright Nicolas-Ștefan Bratoveanu, 2023,
+// licensed under the EUPL-1.2-or-later
+
 use anyhow::Result;
 use clap::Parser;
 use minifb::{ScaleMode, Window, WindowOptions};

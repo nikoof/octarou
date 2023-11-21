@@ -1,4 +1,5 @@
 # chip8
+![License](https://img.shields.io/github/license/nikoof/chip8)
 ![Nix build status](https://github.com/nikoof/chip8/actions/workflows/build_nix.yml/badge.svg)
 
 A cross-platform CHIP-8 interpreter. The interpreter's behaviour is controlled via command-line arguments, and the display is implemented as a GUI. This setup is obviously not ideal, and it will probably change in the future to include a fully-featured GUI for both configuration and rendering.
@@ -57,3 +58,6 @@ This project is heavily based on [Tobias Langhoff's Guide](https://tobiasvl.gith
 Other resources used include:
 - [Gulrak's Opcode Table](https://chip8.gulrak.net/)
 - [Revival Studios ROMs](https://github.com/kripod/chip8-roms)
+
+# License
+Copyright (c) Nicolas-Ștefan Bratoveanu, 2023, licensed under the EUPL-1.2-or-later.
