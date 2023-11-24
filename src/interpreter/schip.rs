@@ -296,8 +296,8 @@ where
                                 break;
                             }
                             let sprite_row = u16::from_be_bytes([
-                                self.memory[self.index + y_offset],
-                                self.memory[self.index + y_offset + 1],
+                                self.memory[self.index + 2 * y_offset],
+                                self.memory[self.index + 2 * y_offset + 1],
                             ]);
                             for x_offset in 0..16 {
                                 if x + x_offset >= DISPLAY_WIDTH {
