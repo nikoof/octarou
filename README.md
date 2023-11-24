@@ -53,11 +53,11 @@ $ cargo run --release -- --help
 ```
 
 # Credits
-This project is heavily based on [Tobias Langhoff's Guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/) and [Timendus' Test Suite](https://github.com/Timendus/octarou-test-suite). I am extremely grateful to both authors for these amazing resources.
+This project would not have been possible without [Tobias Langhoff's Guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/) and [Timendus' Test Suite](https://github.com/Timendus/chip8-test-suite). I am extremely grateful to both authors for these amazing resources.
 
 Other resources used include:
-- [Gulrak's Opcode Table](https://octarou.gulrak.net/)
-- [Revival Studios ROMs](https://github.com/kripod/octarou-roms)
+- [Revival Studios ROMs](https://github.com/kripod/chip8-roms)
+- [Gulrak's Opcode Table](https://chip8.gulrak.net/)
 
 # License
 Copyright (c) Nicolas-Ștefan Bratoveanu, 2023, licensed under the EUPL-1.2-or-later.
