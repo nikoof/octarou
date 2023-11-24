@@ -75,7 +75,7 @@ where
 
         'cpu: loop {
             let next_instruction = self.next_instruction()?;
-            self.execute_instruction(next_instruction);
+            self.execute_instruction(next_instruction)?;
             self.window
                 .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
@@ -136,67 +136,79 @@ where
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) {
+    fn execute_instruction(&mut self, instruction: Instruction) -> Result<()> {
         use Instruction::*;
         match instruction {
-            ClearScreen => self.display.fill(0),
-            Jump { address } => self.pc = address,
+            ClearScreen => Ok(self.display.fill(0)),
+            Jump { address } => Ok(self.pc = address),
             JumpOffset {
                 address,
                 offset_register: _,
             } => {
-                self.pc = address;
+                self.pc = address + self.variables[0] as usize;
+                Ok(())
             }
-            SetLiteral { dest, value } => self.variables[dest] = value,
+            SetLiteral { dest, value } => Ok(self.variables[dest] = value),
             AddLiteral { dest, value } => {
-                self.variables[dest] = self.variables[dest].wrapping_add(value)
+                self.variables[dest] = self.variables[dest].wrapping_add(value);
+                Ok(())
             }
-            SetIndex { src } => self.index = src,
-            SetIndexFont { src } => {
+            SetIndex { src } => Ok(self.index = src),
+            SetIndexFont { src, big: _ } => {
                 let character = (self.variables[src] & 0x0F) as usize;
                 self.index = FONT_ADDRESS + 5 * character;
+                Ok(())
             }
             AddIndex { src } => {
                 let (res, overflow) = self.index.overflowing_add(self.variables[src] as usize);
                 self.index = res;
                 self.variables[0xF] = overflow as u8;
+                Ok(())
             }
             Call { address } => {
                 self.stack.push(self.pc);
                 self.pc = address;
+                Ok(())
             }
             Return => {
                 self.pc = self.stack.pop().expect("Don't pop out of main");
+                Ok(())
             }
             SkipEq { x, y } => {
                 if self.variables[x] == self.variables[y] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipNotEq { x, y } => {
                 if self.variables[x] != self.variables[y] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipEqLiteral { x, value } => {
                 if self.variables[x] == value {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipNotEqLiteral { x, value } => {
                 if self.variables[x] != value {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipIfKey { key_register } => {
                 if self.window.is_key_down(self.variables[key_register]) {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipIfNotKey { key_register } => {
                 if !self.window.is_key_down(self.variables[key_register]) {
                     self.pc += 2;
                 }
+                Ok(())
             }
             GetKey { dest } => {
                 if let Some(key) = self.window.get_key() {
@@ -204,48 +216,61 @@ where
                 } else {
                     self.pc -= 2;
                 }
+                Ok(())
             }
             Set { dest, src } => {
                 self.variables[dest] = self.variables[src];
+                Ok(())
             }
             Or { lhs, rhs } => {
                 self.variables[lhs] |= self.variables[rhs];
+                Ok(())
             }
             And { lhs, rhs } => {
                 self.variables[lhs] &= self.variables[rhs];
+                Ok(())
             }
             Xor { lhs, rhs } => {
                 self.variables[lhs] ^= self.variables[rhs];
+                Ok(())
             }
             Add { lhs, rhs } => {
                 let (res, overflow) = self.variables[lhs].overflowing_add(self.variables[rhs]);
                 self.variables[lhs] = res;
                 self.variables[0xF] = overflow as u8;
+                Ok(())
             }
             Sub { lhs, rhs, dest } => {
                 let (res, overflow) = self.variables[lhs].overflowing_sub(self.variables[rhs]);
                 self.variables[dest] = res;
                 self.variables[0xF] = !overflow as u8;
+                Ok(())
             }
-            // TODO: Make ambiguity configurable
             LeftShift { lhs, rhs } => {
+                self.variables[lhs] = self.variables[rhs];
                 let flag = self.variables[lhs] >> 7;
                 self.variables[lhs] <<= 1;
                 self.variables[0xF] = flag;
+                Ok(())
             }
             RightShift { lhs, rhs } => {
+                self.variables[lhs] = self.variables[rhs];
                 let flag = self.variables[lhs] & 1;
                 self.variables[lhs] >>= 1;
                 self.variables[0xF] = flag;
+                Ok(())
             }
             GetDelay { dest } => {
                 self.variables[dest] = self.delay_timer;
+                Ok(())
             }
             SetDelay { src } => {
                 self.delay_timer = self.variables[src];
+                Ok(())
             }
             SetSound { src } => {
                 self.sound_timer = self.variables[src];
+                Ok(())
             }
             Draw {
                 x,
@@ -271,9 +296,11 @@ where
                         self.display[buffer_index] ^= pixel;
                     }
                 }
+                Ok(())
             }
             Random { x, mask } => {
                 self.variables[x] = rand::random::<u8>() & mask;
+                Ok(())
             }
             DecimalConversion { src } => {
                 let mut n = self.variables[src];
@@ -282,17 +309,26 @@ where
                     self.memory[self.index + i] = n % 10;
                     n /= 10;
                 }
+                Ok(())
             }
             StoreMemory { registers } => {
                 for i in 0..=registers {
                     self.memory[self.index + i] = self.variables[i];
+                    // self.index = i;
                 }
+                Ok(())
             }
             LoadMemory { registers } => {
                 for i in 0..=registers {
                     self.variables[i] = self.memory[self.index + i];
+                    // self.index = i;
                 }
+                Ok(())
             }
+            _ => Err(anyhow!(
+                "Instruction {:?} not in Chip8 instruction set.",
+                instruction
+            )),
         }
     }
 }

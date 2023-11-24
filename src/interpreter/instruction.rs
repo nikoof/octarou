@@ -1,5 +1,6 @@
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Instruction {
+    // Chip8 instructions
     ClearScreen,
     Draw {
         x: usize,
@@ -126,6 +127,7 @@ pub enum Instruction {
 
     SetIndexFont {
         src: usize,
+        big: bool,
     },
 
     DecimalConversion {
@@ -144,6 +146,25 @@ pub enum Instruction {
         x: usize,
         mask: u8,
     },
+
+    // Schip extension
+    Hires,
+    Lores,
+
+    ScrollRight,
+    ScrollLeft,
+    ScrollDown {
+        amount: usize,
+    },
+
+    SaveFlags {
+        x: usize,
+    },
+    LoadFlags {
+        x: usize,
+    },
+
+    Exit,
 }
 
 impl Instruction {
@@ -155,7 +176,17 @@ impl Instruction {
             0x0000 => match opcode {
                 0x00E0 => Some(ClearScreen),
                 0x00EE => Some(Return),
-                _ => None,
+                0x00FF => Some(Hires),
+                0x00FE => Some(Lores),
+                0x00FB => Some(ScrollRight),
+                0x00FC => Some(ScrollLeft),
+                0x00FD => Some(Exit),
+                _ => match opcode & 0x00F0 {
+                    0x00C0 => Some(ScrollDown {
+                        amount: xyn(opcode).2 as usize,
+                    }),
+                    _ => None,
+                },
             },
             0x1000 => {
                 let address = nnn(opcode);
@@ -215,11 +246,9 @@ impl Instruction {
                 }
             }
             0xA000 => Some(SetIndex { src: nnn(opcode) }),
-
-            // TODO: Make this op's behaviour configurable.
             0xB000 => Some(JumpOffset {
                 address: nnn(opcode),
-                offset_register: 0,
+                offset_register: xnn(opcode).0,
             }),
 
             0xC000 => {
@@ -253,10 +282,13 @@ impl Instruction {
                     0x18 => Some(SetSound { src: x }),
                     0x1E => Some(AddIndex { src: x }),
                     0x0A => Some(GetKey { dest: x }),
-                    0x29 => Some(SetIndexFont { src: x }),
+                    0x29 => Some(SetIndexFont { src: x, big: false }),
+                    0x30 => Some(SetIndexFont { src: x, big: true }),
                     0x33 => Some(DecimalConversion { src: x }),
                     0x55 => Some(StoreMemory { registers: x }),
                     0x65 => Some(LoadMemory { registers: x }),
+                    0x75 => Some(SaveFlags { x }),
+                    0x85 => Some(LoadFlags { x }),
                     _ => None,
                 }
             }
