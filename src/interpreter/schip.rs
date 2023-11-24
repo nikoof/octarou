@@ -171,6 +171,7 @@ where
         use Instruction::*;
         match instruction {
             ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
+            Exit => self.running = false,
             Jump { address } => self.pc = address,
             JumpOffset {
                 address,
@@ -281,6 +282,8 @@ where
             SetSound { src } => {
                 self.sound_timer = self.variables[src];
             }
+            Hires => self.hires = true,
+            Lores => self.hires = false,
             Draw {
                 x,
                 y,
@@ -399,11 +402,8 @@ where
                     self.variables[i] = self.memory[self.index + i];
                 }
             }
-            Hires => self.hires = true,
-            Lores => self.hires = false,
             SaveFlags { x: _ } => (),
             LoadFlags { x: _ } => (),
-            Exit => self.running = false,
         }
     }
 }
