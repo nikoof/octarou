@@ -63,7 +63,7 @@ where
     sound_timer: u8,
     variables: [u8; 16],
     hires: bool,
-    display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     running: bool,
     speed: u64,
     window: W,
@@ -104,8 +104,9 @@ where
                 println!("Unknown instruction");
             }
 
+            let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
             self.window
-                .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+                .update_buffer(&buffer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
             let cpu_elapsed = now.elapsed() - total_elapsed;
             total_elapsed += cpu_elapsed;
@@ -147,7 +148,7 @@ where
             sound_timer: 0,
             variables: [0; 16],
             hires: false,
-            display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             running: true,
             speed,
             window: display,
@@ -169,7 +170,7 @@ where
     fn execute_instruction(&mut self, instruction: Instruction) {
         use Instruction::*;
         match instruction {
-            ClearScreen => self.display.fill(0),
+            ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
             Jump { address } => self.pc = address,
             JumpOffset {
                 address,
@@ -304,9 +305,9 @@ where
                                     break;
                                 }
                                 let pixel = ((sprite_row >> (15 - x_offset)) & 1) as u8;
-                                let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
-                                self.variables[0xF] |= self.display[buffer_index] & pixel;
-                                self.display[buffer_index] ^= pixel;
+                                self.variables[0xF] |=
+                                    self.display[y + y_offset][x + x_offset] & pixel;
+                                self.display[y + y_offset][x + x_offset] ^= pixel;
                             }
                         }
                     } else {
@@ -320,9 +321,9 @@ where
                                     break;
                                 }
                                 let pixel = (sprite_row >> (7 - x_offset)) & 1;
-                                let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
-                                self.variables[0xF] |= self.display[buffer_index] & pixel;
-                                self.display[buffer_index] ^= pixel;
+                                self.variables[0xF] |=
+                                    self.display[y + y_offset][x + x_offset] & pixel;
+                                self.display[y + y_offset][x + x_offset] ^= pixel;
                             }
                         }
                     }
@@ -341,9 +342,8 @@ where
                                 break;
                             }
                             let pixel = (sprite_row >> (7 - x_offset / 2)) & 1;
-                            let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
-                            self.variables[0xF] |= self.display[buffer_index] & pixel;
-                            self.display[buffer_index] ^= pixel;
+                            self.variables[0xF] |= self.display[y + y_offset][x + x_offset] & pixel;
+                            self.display[y + y_offset][x + x_offset] ^= pixel;
                         }
                     }
                 }
@@ -353,18 +353,11 @@ where
                     true => 4,
                     false => 2 * 4,
                 };
-                for row in 0..DISPLAY_HEIGHT {
-                    for col in (amount..DISPLAY_WIDTH).rev() {
-                        self.display[row * DISPLAY_WIDTH + col] =
-                            self.display[row * DISPLAY_WIDTH + col - amount]
-                    }
-                }
 
-                for row in 0..DISPLAY_HEIGHT {
-                    for col in 0..amount {
-                        self.display[row * DISPLAY_WIDTH + col] = 0;
-                    }
-                }
+                self.display.iter_mut().for_each(|row| {
+                    row.rotate_right(amount);
+                    row[0..amount].fill(0);
+                });
             }
             ScrollLeft => {
                 let amount = match self.hires {
@@ -372,26 +365,18 @@ where
                     false => 2 * 4,
                 };
 
-                for row in 0..DISPLAY_HEIGHT {
-                    for col in 0..DISPLAY_WIDTH - amount {
-                        self.display[row * DISPLAY_WIDTH + col] =
-                            self.display[row * DISPLAY_WIDTH + col + amount]
-                    }
-                }
-
-                for row in 0..DISPLAY_HEIGHT {
-                    for col in (DISPLAY_WIDTH - amount)..DISPLAY_WIDTH {
-                        self.display[row * DISPLAY_WIDTH + col] = 0;
-                    }
-                }
+                self.display.iter_mut().for_each(|row| {
+                    row.rotate_left(amount);
+                    row[DISPLAY_WIDTH - amount..].fill(0);
+                });
             }
             ScrollDown { amount } => {
                 let amount = match self.hires {
                     true => amount,
                     false => 2 * amount,
                 };
-                self.display.rotate_right(amount * DISPLAY_WIDTH);
-                self.display[0..amount * DISPLAY_WIDTH].fill(0);
+                self.display.rotate_right(amount);
+                self.display[0..amount].fill([0; DISPLAY_WIDTH]);
             }
             Random { x, mask } => {
                 self.variables[x] = rand::random::<u8>() & mask;

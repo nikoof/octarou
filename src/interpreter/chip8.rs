@@ -40,7 +40,7 @@ where
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
-    display: [u8; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     speed: u64,
     window: W,
 }
@@ -76,8 +76,10 @@ where
         'cpu: loop {
             let next_instruction = self.next_instruction()?;
             self.execute_instruction(next_instruction)?;
+
+            let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
             self.window
-                .update_buffer(&self.display, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+                .update_buffer(&buffer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
             let cpu_elapsed = now.elapsed() - total_elapsed;
             total_elapsed += cpu_elapsed;
@@ -118,7 +120,7 @@ where
             delay_timer: 0,
             sound_timer: 0,
             variables: [0; 16],
-            display: [0; DISPLAY_WIDTH * DISPLAY_HEIGHT],
+            display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             speed,
             window: display,
         }
@@ -139,7 +141,7 @@ where
     fn execute_instruction(&mut self, instruction: Instruction) -> Result<()> {
         use Instruction::*;
         match instruction {
-            ClearScreen => Ok(self.display.fill(0)),
+            ClearScreen => Ok(self.display.iter_mut().for_each(|e| e.fill(0))),
             Jump { address } => Ok(self.pc = address),
             JumpOffset {
                 address,
@@ -291,9 +293,8 @@ where
                             break;
                         }
                         let pixel = (sprite_row >> (7 - x_offset)) & 1;
-                        let buffer_index = (y + y_offset) * DISPLAY_WIDTH + (x + x_offset);
-                        self.variables[0xF] |= self.display[buffer_index] & pixel;
-                        self.display[buffer_index] ^= pixel;
+                        self.variables[0xF] |= self.display[y + y_offset][x + x_offset] & pixel;
+                        self.display[y + y_offset][x + x_offset] ^= pixel;
                     }
                 }
                 Ok(())
