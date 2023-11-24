@@ -74,8 +74,10 @@ where
         self.update_timers();
 
         'cpu: loop {
-            let next_instruction = self.next_instruction()?;
-            self.execute_instruction(next_instruction)?;
+            match self.next_instruction() {
+                Ok(next_instruction) => self.execute_instruction(next_instruction)?,
+                Err(e) => eprintln!("{} at address {:#06x}", e, self.pc - 2),
+            }
 
             let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
             self.window
