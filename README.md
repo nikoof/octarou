@@ -4,8 +4,13 @@
 
 A cross-platform CHIP-8 interpreter. The interpreter's behaviour is controlled via command-line arguments, and the display is implemented as a GUI. This setup is obviously not ideal, and it will probably change in the future to include a fully-featured GUI for both configuration and rendering.
 
-The interpreter fully implements the original COSMAC VIP CHIP-8 instruction set.
-I am currently planning to also add support for SUPER-CHIP (and maybe XO-CHIP).
+The interpreter fully implements:
+- the original COSMAC VIP CHIP-8 instruction set.
+- the [SUPER-CHIP 1.1](http://devernay.free.fr/hacks/chip8/schip.txt) extension
+
+I might implement support for other variants (for example, XO-CHIP).
+
+One of my main goals with this project is for it to be as "correct" as possible, so should you discover any issues with this implementation, please feel free to open an issue. 
 
 # Usage
 ```
@@ -55,9 +60,14 @@ $ cargo run --release -- --help
 # Credits
 This project would not have been possible without [Tobias Langhoff's Guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/) and [Timendus' Test Suite](https://github.com/Timendus/chip8-test-suite). I am extremely grateful to both authors for these amazing resources.
 
-Other resources used include:
+Resources used:
+- [Tobias Langhoff's Guide](https://tobiasvl.github.io/blog/write-a-chip-8-emulator/)
+- [Timendus' Test Suite and Documentation](https://github.com/Timendus/chip8-test-suite)
+- [CHIP-8 Research Facility](https://chip-8.github.io/extensions/)
+- [Octo Documentation](http://johnearnest.github.io/Octo/docs/SuperChip.html)
 - [Revival Studios ROMs](https://github.com/kripod/chip8-roms)
 - [Gulrak's Opcode Table](https://chip8.gulrak.net/)
+- [SUPER-CHIP 1.1 Documentation (Erik Bryntse)](http://devernay.free.fr/hacks/chip8/schip.txt)
 
 # License
 Copyright (c) Nicolas-Ștefan Bratoveanu, 2023, licensed under the EUPL-1.2-or-later.
