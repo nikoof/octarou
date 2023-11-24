@@ -96,16 +96,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "chip8"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "minifb",
- "rand",
-]
-
-[[package]]
 name = "clap"
 version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -427,6 +417,16 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "octarou"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "minifb",
+ "rand",
 ]
 
 [[package]]

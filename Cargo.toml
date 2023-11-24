@@ -1,8 +1,8 @@
 [package]
-name = "chip8"
+name = "octarou"
 description = "CHIP-8 interpreter for my high-school CS final project"
 authors = ["Nicolas Bratoveanu <nicolasbratoveanu@proton.me"]
-repository = "https://github.com/Nikoof/chip8"
+repository = "https://github.com/Nikoof/octarou"
 version = "0.2.0"
 edition = "2021"
 

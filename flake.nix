@@ -41,7 +41,7 @@
       defaultPackage = with pkgs;
         naersk-lib.buildPackage rec {
           src = ./.;
-          pname = "chip8";
+          pname = "octarou";
           nativeBuildInputs = [
             makeWrapper
           ];
@@ -75,7 +75,7 @@
         .buildPackage
         {
           src = ./.;
-          pname = "chip8";
+          pname = "octarou";
 
           strictDeps = true;
           depsBuildBuild = with pkgs.pkgsCross; [
