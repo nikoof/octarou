@@ -1,7 +1,5 @@
 use super::{instruction::Instruction, Interpreter};
-use crate::window::{Display, Input};
 use anyhow::{anyhow, Result};
-use std::time::{Duration, Instant};
 
 const PROGRAM_ADDRESS: usize = 0x200;
 
@@ -51,10 +49,7 @@ const DISPLAY_HEIGHT: usize = 64;
 
 const DEFAULT_SPEED: u64 = 700;
 
-pub struct Schip<W>
-where
-    W: Display + Input,
-{
+pub struct Schip {
     memory: [u8; 4096],
     pc: usize,
     index: usize,
@@ -66,72 +61,16 @@ where
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     running: bool,
     speed: u64,
-    window: W,
 }
 
-impl<W> Default for Schip<W>
-where
-    W: Display + Input + Default,
-{
+impl Default for Schip {
     fn default() -> Self {
-        let mut window = W::default();
-        window.set_update_rate(DEFAULT_SPEED);
-        Self::new(window, DEFAULT_SPEED, None)
+        Self::new(DEFAULT_SPEED, None)
     }
 }
 
-impl<W> Interpreter for Schip<W>
-where
-    W: Display + Input,
-{
-    fn display_open(&self) -> bool {
-        self.running && self.window.is_open()
-    }
-
-    fn tick(&mut self) -> Result<()> {
-        let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
-        let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
-
-        let now = Instant::now();
-        let mut total_elapsed = Duration::from_secs(0);
-
-        self.update_timers();
-
-        'cpu: loop {
-            match self.next_instruction() {
-                Ok(next_instruction) => self.execute_instruction(next_instruction),
-                Err(e) => eprintln!("{} at address {:#06x}", e, self.pc - 2),
-            }
-
-            let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
-            self.window
-                .update_buffer(&buffer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-
-            let cpu_elapsed = now.elapsed() - total_elapsed;
-            total_elapsed += cpu_elapsed;
-
-            if cpu_elapsed < cpu_cycle_duration {
-                let time_left = cpu_cycle_duration - cpu_elapsed;
-                total_elapsed += time_left;
-                std::thread::sleep(time_left);
-            }
-
-            if total_elapsed >= timer_cycle_duration {
-                break 'cpu;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl<W> Schip<W>
-where
-    W: Display + Input,
-{
-    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
-        display.set_update_rate(speed);
-
+impl Schip {
+    pub fn new(speed: u64, program: Option<&[u8]>) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         if let Some(program) = program {
@@ -150,8 +89,17 @@ where
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             running: true,
             speed,
-            window: display,
         }
+    }
+}
+
+impl Interpreter for Schip {
+    fn speed(&self) -> u64 {
+        self.speed
+    }
+
+    fn display(&self) -> Vec<&[u8]> {
+        self.display.iter().map(|row| row.as_slice()).collect()
     }
 
     fn update_timers(&mut self) {
@@ -166,7 +114,7 @@ where
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) {
+    fn execute_instruction(&mut self, instruction: Instruction, keys: &[bool; 16]) -> Result<()> {
         use Instruction::*;
         match instruction {
             ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
@@ -224,17 +172,17 @@ where
                 }
             }
             SkipIfKey { key_register } => {
-                if self.window.is_key_down(self.variables[key_register]) {
+                if keys[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             SkipIfNotKey { key_register } => {
-                if !self.window.is_key_down(self.variables[key_register]) {
+                if !keys[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             GetKey { dest } => {
-                if let Some(key) = self.window.get_key() {
+                if let Some(key) = keys.iter().position(|&key| key) {
                     self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
@@ -404,5 +352,7 @@ where
             SaveFlags { x: _ } => (),
             LoadFlags { x: _ } => (),
         }
+
+        Ok(())
     }
 }

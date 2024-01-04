@@ -34,13 +34,9 @@ fn main() -> Result<()> {
 
     let program = read_program_from_file(args.program.as_path())?;
     let mut state: Box<dyn Interpreter> = match args.variant {
-        Variant::Chip8 => Box::new(Chip8::new(window, args.cpu_speed, Some(&program))),
-        Variant::Schip => Box::new(Schip::new(window, args.cpu_speed, Some(&program))),
+        Variant::Chip8 => Box::new(Chip8::new(args.cpu_speed, Some(&program))),
+        Variant::Schip => Box::new(Schip::new(args.cpu_speed, Some(&program))),
     };
-
-    while state.display_open() {
-        state.tick()?;
-    }
 
     Ok(())
 }
