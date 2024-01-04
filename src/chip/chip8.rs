@@ -36,7 +36,7 @@ pub struct Chip8 {
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
-    pub display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     speed: u64,
 }
 
@@ -89,7 +89,12 @@ impl Interpreter for Chip8 {
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction, keys: &[bool; 16]) -> Result<()> {
+    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+        &mut self,
+        instruction: Instruction,
+        is_key_pressed: F,
+        get_key: G,
+    ) -> Result<()> {
         use Instruction::*;
         match instruction {
             ClearScreen => Ok(self.display.iter_mut().for_each(|e| e.fill(0))),
@@ -152,20 +157,20 @@ impl Interpreter for Chip8 {
                 Ok(())
             }
             SkipIfKey { key_register } => {
-                if keys[self.variables[key_register] as usize] {
+                if is_key_pressed(self.variables[key_register]) {
                     self.pc += 2;
                 }
                 Ok(())
             }
             SkipIfNotKey { key_register } => {
-                if !keys[self.variables[key_register] as usize] {
+                if !is_key_pressed(self.variables[key_register]) {
                     self.pc += 2;
                 }
                 Ok(())
             }
             GetKey { dest } => {
-                if let Some(key) = keys.iter().position(|&key| key) {
-                    self.variables[dest] = key as u8;
+                if let Some(key) = get_key() {
+                    self.variables[dest] = key;
                 } else {
                     self.pc -= 2;
                 }

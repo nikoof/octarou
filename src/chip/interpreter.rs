@@ -9,9 +9,18 @@ pub trait Interpreter {
 
     fn update_timers(&mut self);
     fn next_instruction(&mut self) -> Result<Instruction>;
-    fn execute_instruction(&mut self, instruction: Instruction, keys: &[bool; 16]) -> Result<()>;
+    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+        &mut self,
+        instruction: Instruction,
+        is_key_pressed: F,
+        get_key: G,
+    ) -> Result<()>;
 
-    fn tick(&mut self, keys: &[bool; 16]) -> Result<()> {
+    fn tick<F, G>(&mut self, is_key_pressed: F, get_key: G) -> Result<()>
+    where
+        F: Fn(u8) -> bool,
+        G: Fn() -> Option<u8>,
+    {
         let timer_cycle_duration = time::Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / self.speed());
 
@@ -22,7 +31,9 @@ pub trait Interpreter {
 
         'cpu: loop {
             match self.next_instruction() {
-                Ok(next_instruction) => self.execute_instruction(next_instruction, keys)?,
+                Ok(next_instruction) => {
+                    self.execute_instruction(next_instruction, &is_key_pressed, &get_key)?
+                }
                 Err(e) => eprintln!("{}", e),
             }
 

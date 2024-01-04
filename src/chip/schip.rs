@@ -114,7 +114,12 @@ impl Interpreter for Schip {
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction, keys: &[bool; 16]) -> Result<()> {
+    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+        &mut self,
+        instruction: Instruction,
+        is_key_pressed: F,
+        get_key: G,
+    ) -> Result<()> {
         use Instruction::*;
         match instruction {
             ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
@@ -172,18 +177,18 @@ impl Interpreter for Schip {
                 }
             }
             SkipIfKey { key_register } => {
-                if keys[self.variables[key_register] as usize] {
+                if is_key_pressed(self.variables[key_register]) {
                     self.pc += 2;
                 }
             }
             SkipIfNotKey { key_register } => {
-                if !keys[self.variables[key_register] as usize] {
+                if !is_key_pressed(self.variables[key_register]) {
                     self.pc += 2;
                 }
             }
             GetKey { dest } => {
-                if let Some(key) = keys.iter().position(|&key| key) {
-                    self.variables[dest] = key as u8;
+                if let Some(key) = get_key() {
+                    self.variables[dest] = key;
                 } else {
                     self.pc -= 2;
                 }
