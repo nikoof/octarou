@@ -32,6 +32,9 @@
       naersk-lib = pkgs.callPackage naersk {};
       libPath = with pkgs;
         lib.makeLibraryPath [
+          libGL
+          libxkbcommon
+          wayland
           xorg.libX11
           xorg.libXcursor
           xorg.libXrandr

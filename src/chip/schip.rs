@@ -58,7 +58,7 @@ pub struct Schip {
     sound_timer: u8,
     variables: [u8; 16],
     hires: bool,
-    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+    pub display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     running: bool,
     speed: u64,
 }

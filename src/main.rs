@@ -6,20 +6,28 @@ use clap::Parser;
 use std::io::Read;
 use std::{fs::File, path::Path};
 
-use args::{Args, Variant};
-use chip::{Chip8, Interpreter, Schip};
+use app::Octarou;
+use args::Args;
+use chip::Chip8;
 
+use eframe::egui;
+
+pub mod app;
 pub mod args;
 pub mod chip;
 
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let program = read_program_from_file(args.program.as_path())?;
-    let mut state: Box<dyn Interpreter> = match args.variant {
-        Variant::Chip8 => Box::new(Chip8::new(args.cpu_speed, Some(&program))),
-        Variant::Schip => Box::new(Schip::new(args.cpu_speed, Some(&program))),
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 320.0]),
+        ..Default::default()
     };
+
+    let program = read_program_from_file(args.program.as_path())?;
+    let app = Octarou::new(Chip8::new(args.cpu_speed, Some(&program)));
+
+    eframe::run_native("Octarou", options, Box::new(move |_| Box::new(app))).unwrap();
 
     Ok(())
 }
