@@ -1,4 +1,11 @@
-/target
-/.direnv
+# Nix stuff
+**/.direnv
 .pre-commit-config.yaml
-/result
+**/result
+
+# Rust builds
+/target
+
+# Tex artifacts
+doc/**/*.bak*
+doc/**/*.log

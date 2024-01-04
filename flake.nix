@@ -17,7 +17,7 @@
     naersk,
     pre-commit,
     fenix,
-  }:
+  } @ inputs:
     utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
@@ -38,6 +38,8 @@
           xorg.libXi
         ];
     in {
+      formatter = pkgs.alejandra;
+
       defaultPackage = with pkgs;
         naersk-lib.buildPackage rec {
           src = ./.;
@@ -50,20 +52,6 @@
             wrapProgram "$out/bin/${pname}" --prefix LD_LIBRARY_PATH : "${libPath}"
           '';
 
-          LD_LIBRARY_PATH = libPath;
-        };
-
-      devShell = with pkgs;
-        mkShell {
-          inherit (self.checks.${system}.pre-commit-check) shellHook;
-
-          buildInputs = [
-            cargo
-            rustc
-            rustfmt
-            rust-analyzer
-          ];
-          RUST_SRC_PATH = rustPlatform.rustLibSrc;
           LD_LIBRARY_PATH = libPath;
         };
 
@@ -86,7 +74,21 @@
           CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
         };
 
-      formatter = pkgs.alejandra;
+      devShell = with pkgs;
+        mkShell {
+          inherit (self.checks.${system}.pre-commit-check) shellHook;
+
+          buildInputs = [
+            cargo
+            rustc
+            rustfmt
+            rust-analyzer
+          ];
+
+          RUST_SRC_PATH = rustPlatform.rustLibSrc;
+          LD_LIBRARY_PATH = libPath;
+        };
+
       checks.pre-commit-check = pre-commit.lib.${system}.run {
         src = ./.;
         hooks = {
@@ -94,7 +96,36 @@
           rustfmt.enable = true;
           # clippy.enable = true;
           taplo.enable = true;
+          chktex.enable = true;
+          latexindent.enable = true;
         };
       };
+
+      packages.paper = with pkgs;
+        stdenvNoCC.mkDerivation rec {
+          name = "ocatrou-paper";
+          src = ./doc/paper/src;
+          buildInputs = [coreutils texlive.combined.scheme-medium];
+          phases = ["unpackPhase" "buildPhase" "installPhase"];
+
+          buildPhase = ''
+            export PATH="${lib.makeBinPath buildInputs}"
+            mkdir -p .cache/texmf-var
+            env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var \
+              latexmk -interaction=nonstopmode -pdf -lualatex \
+              ${src}/main.tex
+          '';
+
+          installPhase = ''
+            mkdir -p $out/doc
+            cp main.pdf $out/doc/
+          '';
+        };
+
+      devShells.paper = with pkgs;
+        mkShell {
+          inherit (self.checks.${system}.pre-commit-check) shellHook;
+          packages = [texlive.combined.scheme-medium];
+        };
     });
 }
