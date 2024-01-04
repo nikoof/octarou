@@ -3,13 +3,16 @@
 
 use anyhow::Result;
 use clap::Parser;
-use minifb::{ScaleMode, Window, WindowOptions};
 use std::io::Read;
 use std::{fs::File, path::Path};
 
-use args::{Args, Variant};
-use interpreter::{Chip8, Interpreter, Schip};
+use app::Octarou;
+use args::Args;
+use interpreter::Chip8;
 
+use eframe::egui;
+
+pub mod app;
 pub mod args;
 pub mod interpreter;
 pub mod window;
@@ -17,30 +20,15 @@ pub mod window;
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let window = Window::new(
-        match args.program.file_name() {
-            Some(s) => s.to_str().unwrap_or("CHIP-8"),
-            None => "CHIP-8",
-        },
-        args.window_width,
-        args.window_height,
-        WindowOptions {
-            resize: true,
-            scale_mode: ScaleMode::AspectRatioStretch,
-            ..WindowOptions::default()
-        },
-    )
-    .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
-
-    let program = read_program_from_file(args.program.as_path())?;
-    let mut state: Box<dyn Interpreter> = match args.variant {
-        Variant::Chip8 => Box::new(Chip8::new(window, args.cpu_speed, Some(&program))),
-        Variant::Schip => Box::new(Schip::new(window, args.cpu_speed, Some(&program))),
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 320.0]),
+        ..Default::default()
     };
 
-    while state.display_open() {
-        state.tick()?;
-    }
+    let program = read_program_from_file(args.program.as_path())?;
+    let app = Octarou::new(Chip8::new(args.cpu_speed, Some(&program)));
+
+    eframe::run_native("Octarou", options, Box::new(move |_| Box::new(app))).unwrap();
 
     Ok(())
 }

@@ -1,7 +1,10 @@
 use super::{instruction::Instruction, Interpreter};
 use crate::window::{Display, Input};
 use anyhow::{anyhow, Result};
-use std::time::{Duration, Instant};
+use std::{
+    convert::identity,
+    time::{Duration, Instant},
+};
 
 const PROGRAM_ADDRESS: usize = 0x200;
 const FONT_ADDRESS: usize = 0x50;
@@ -29,10 +32,7 @@ const DISPLAY_HEIGHT: usize = 32;
 
 const DEFAULT_SPEED: u64 = 700;
 
-pub struct Chip8<W>
-where
-    W: Display + Input,
-{
+pub struct Chip8 {
     memory: [u8; 4096],
     pc: usize,
     index: usize,
@@ -40,30 +40,23 @@ where
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
-    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+    pub display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     speed: u64,
-    window: W,
+    pub keys: [bool; 16],
 }
 
-impl<W> Default for Chip8<W>
-where
-    W: Display + Input + Default,
-{
-    fn default() -> Self {
-        let mut window = W::default();
-        window.set_update_rate(DEFAULT_SPEED);
-        Self::new(window, DEFAULT_SPEED, None)
-    }
-}
+// impl<W> Default for Chip8<W>
+// where
+//     W: Display + Input + Default,
+// {
+//     fn default() -> Self {
+//         let mut window = W::default();
+//         window.set_update_rate(DEFAULT_SPEED);
+//         Self::new(window, DEFAULT_SPEED, None)
+//     }
+// }
 
-impl<W> Interpreter for Chip8<W>
-where
-    W: Display + Input,
-{
-    fn display_open(&self) -> bool {
-        self.window.is_open()
-    }
-
+impl Interpreter for Chip8 {
     fn tick(&mut self) -> Result<()> {
         let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
@@ -80,8 +73,6 @@ where
             }
 
             let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
-            self.window
-                .update_buffer(&buffer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
             let cpu_elapsed = now.elapsed() - total_elapsed;
             total_elapsed += cpu_elapsed;
@@ -101,13 +92,8 @@ where
     }
 }
 
-impl<W> Chip8<W>
-where
-    W: Display + Input,
-{
-    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
-        display.set_update_rate(speed);
-
+impl Chip8 {
+    pub fn new(speed: u64, program: Option<&[u8]>) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         if let Some(program) = program {
@@ -124,8 +110,12 @@ where
             variables: [0; 16],
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             speed,
-            window: display,
+            keys: [false; 16],
         }
+    }
+
+    pub fn update_keys(&mut self, keys: &[bool; 16]) {
+        self.keys.copy_from_slice(keys);
     }
 
     fn update_timers(&mut self) {
@@ -203,19 +193,19 @@ where
                 Ok(())
             }
             SkipIfKey { key_register } => {
-                if self.window.is_key_down(self.variables[key_register]) {
+                if self.keys[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             }
             SkipIfNotKey { key_register } => {
-                if !self.window.is_key_down(self.variables[key_register]) {
+                if !self.keys[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             }
             GetKey { dest } => {
-                if let Some(key) = self.window.get_key() {
+                if let Some(key) = self.keys.iter().position(|&e| e) {
                     self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
