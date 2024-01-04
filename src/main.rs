@@ -8,10 +8,10 @@ use std::io::Read;
 use std::{fs::File, path::Path};
 
 use args::{Args, Variant};
-use interpreter::{Chip8, Interpreter, Schip};
+use chip::{Chip8, Interpreter, Schip};
 
 pub mod args;
-pub mod interpreter;
+pub mod chip;
 pub mod window;
 
 fn main() -> Result<()> {
