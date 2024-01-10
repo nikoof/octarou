@@ -1,5 +1,12 @@
-use crate::interpreter::Chip8;
-use crate::interpreter::Interpreter;
+use anyhow::Result;
+use egui;
+use egui_file::FileDialog;
+use std::ffi::OsStr;
+use std::io::Read;
+use std::path::PathBuf;
+use std::{fs::File, path::Path};
+
+use crate::interpreter::{Chip8, Interpreter, Superchip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InterpreterMode {
@@ -8,12 +15,14 @@ enum InterpreterMode {
 }
 
 pub struct Octarou {
-    interpreter: Box<dyn Interpreter>,
-    logs: String,
+    interpreter: Option<Box<dyn Interpreter>>,
+
     mode: InterpreterMode,
     speed: u64,
 
     screen_size: egui::Vec2,
+    open_dialog: Option<FileDialog>,
+    open_file: Option<PathBuf>,
 }
 
 impl eframe::App for Octarou {
@@ -32,9 +41,22 @@ impl eframe::App for Octarou {
             .try_into()
             .expect("Should never panic");
 
-        self.interpreter
-            .tick(&keys_down, &keys_released, self.speed)
-            .unwrap();
+        if let Some(interpreter) = &mut self.interpreter {
+            interpreter
+                .tick(&keys_down, &keys_released, self.speed)
+                .unwrap();
+        }
+
+        if let Some(dialog) = &mut self.open_dialog {
+            if dialog.show(ctx).selected() {
+                if let Some(file) = dialog.path() {
+                    self.open_file = Some(file.to_path_buf());
+                    self.interpreter = Some(Box::new(Chip8::new(Some(
+                        &read_program_from_file(file).unwrap(),
+                    ))));
+                }
+            }
+        }
 
         self.ui(ctx);
         ctx.request_repaint();
@@ -42,14 +64,15 @@ impl eframe::App for Octarou {
 }
 
 impl Octarou {
-    pub fn new(interpreter: Chip8) -> Self {
+    pub fn new() -> Self {
         Self {
-            interpreter: Box::new(interpreter),
+            interpreter: None,
             mode: InterpreterMode::Chip8,
-            logs: "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat.".to_owned(),
             speed: 700,
 
             screen_size: egui::Vec2::ZERO,
+            open_dialog: None,
+            open_file: None,
         }
     }
 
@@ -64,6 +87,19 @@ impl Octarou {
         egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
+                    if ui.button("Open").clicked() {
+                        let filter = Box::new({
+                            let ext = Some(OsStr::new("ch8"));
+                            move |path: &Path| -> bool { path.extension() == ext }
+                        });
+
+                        let mut dialog =
+                            FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
+                        dialog.open();
+                        self.open_dialog = Some(dialog);
+                        ui.close_menu();
+                    }
+
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -75,7 +111,16 @@ impl Octarou {
     fn controls(&mut self, ctx: &egui::Context) {
         egui::SidePanel::right("controls")
             .resizable(false)
-            .exact_width(0.2 * self.screen_size.x)
+            // .exact_width(0.4 * self.screen_size.x)
+            .show(ctx, |ui| {
+                ui.heading("Logs");
+                egui_logger::logger_ui(ui);
+            });
+    }
+
+    fn logs(&mut self, ctx: &egui::Context) {
+        egui::TopBottomPanel::bottom("logs")
+            .exact_height(0.2 * self.screen_size.y)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::default().with_cross_justify(true), |ui| {
                     ui.heading("Interpreter controls");
@@ -84,6 +129,8 @@ impl Octarou {
                     ui.add(egui::Slider::new(&mut self.speed, 100..=2000));
 
                     ui.label("Interpreter mode");
+
+                    // let previous_mode = self.mode;
                     egui::ComboBox::from_id_source("mode-selector")
                         .selected_text(format!("{:?}", self.mode))
                         .show_ui(ui, |ui| {
@@ -94,22 +141,22 @@ impl Octarou {
                                 "SuperChip",
                             );
                         });
-                })
-            });
-    }
 
-    fn logs(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::bottom("logs")
-            .exact_height(0.2 * self.screen_size.y)
-            .show(ctx, |ui| {
-                ui.heading("Logs");
-                ui.add(
-                    egui::TextEdit::multiline(&mut self.logs.as_str())
-                        .code_editor()
-                        .desired_rows(1)
-                        .desired_width(f32::INFINITY)
-                        .lock_focus(true),
-                );
+                    // if previous_mode != self.mode {
+                    //     let program = self
+                    //         .open_file
+                    //         .as_ref()
+                    //         .map(|path| read_program_from_file(&path).unwrap());
+                    //     self.interpreter = match self.mode {
+                    //         InterpreterMode::Chip8 => {
+                    //             Some(Box::new(Chip8::new(program.as_ref().map(|p| p.as_slice()))))
+                    //         }
+                    //         InterpreterMode::SuperChip => Some(Box::new(Superchip::new(
+                    //             program.as_ref().map(|p| p.as_slice()),
+                    //         ))),
+                    //     }
+                    // }
+                });
             });
     }
 
@@ -118,36 +165,48 @@ impl Octarou {
             .frame(egui::Frame::default().fill(egui::Color32::BLACK))
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    let size = ui.available_size_before_wrap();
-                    let scale = egui::vec2(size.x / 64.0, size.y / 32.0);
+                    if let Some(interpreter) = &self.interpreter {
+                        let size = ui.available_size_before_wrap();
+                        let scale = egui::vec2(size.x / 64.0, size.y / 32.0);
 
-                    let (response, painter) =
-                        ui.allocate_painter(size, egui::Sense::focusable_noninteractive());
-                    let rect = response.rect;
+                        let (response, painter) =
+                            ui.allocate_painter(size, egui::Sense::focusable_noninteractive());
+                        let rect = response.rect;
 
-                    for (y, row) in self.interpreter.display().iter().enumerate() {
-                        for (x, &cell) in row.iter().enumerate() {
-                            if cell == 1u8 {
-                                let points = [
-                                    rect.min
-                                        + egui::Vec2::new(x as f32 * scale.x, y as f32 * scale.y),
-                                    rect.min
-                                        + egui::Vec2::new(
-                                            (x + 1) as f32 * scale.x,
-                                            (y + 1) as f32 * scale.y,
-                                        ),
-                                ];
-                                painter.rect_filled(
-                                    egui::Rect::from_points(&points),
-                                    egui::Rounding::ZERO,
-                                    egui::Color32::WHITE,
-                                );
+                        for (y, row) in interpreter.display().iter().enumerate() {
+                            for (x, &cell) in row.iter().enumerate() {
+                                if cell == 1u8 {
+                                    let points = [
+                                        rect.min
+                                            + egui::Vec2::new(
+                                                x as f32 * scale.x,
+                                                y as f32 * scale.y,
+                                            ),
+                                        rect.min
+                                            + egui::Vec2::new(
+                                                (x + 1) as f32 * scale.x,
+                                                (y + 1) as f32 * scale.y,
+                                            ),
+                                    ];
+                                    painter.rect_filled(
+                                        egui::Rect::from_points(&points),
+                                        egui::Rounding::ZERO,
+                                        egui::Color32::WHITE,
+                                    );
+                                }
                             }
                         }
                     }
                 });
             });
     }
+}
+
+fn read_program_from_file(path: &Path) -> Result<Vec<u8>> {
+    let mut buf = Vec::new();
+    let mut file = File::open(path)?;
+    file.read_to_end(&mut buf)?;
+    Ok(buf)
 }
 
 fn chip8_key_to_egui_key(key: u8) -> Option<egui::Key> {
