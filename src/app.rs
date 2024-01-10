@@ -1,5 +1,5 @@
-use crate::chip::Chip8;
-use crate::chip::Interpreter;
+use crate::interpreter::Chip8;
+use crate::interpreter::Interpreter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InterpreterMode {

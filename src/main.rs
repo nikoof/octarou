@@ -8,13 +8,13 @@ use std::{fs::File, path::Path};
 
 use app::Octarou;
 use args::Args;
-use chip::Chip8;
+use interpreter::Chip8;
 
 use eframe::egui;
 
 pub mod app;
 pub mod args;
-pub mod chip;
+pub mod interpreter;
 
 fn main() -> Result<()> {
     let args = Args::parse();

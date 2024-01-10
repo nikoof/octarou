@@ -1,7 +1,13 @@
+mod chip8;
+mod instruction;
+mod superchip;
+
 use anyhow::Result;
+use instruction::Instruction;
 use std::time;
 
-use super::instruction::Instruction;
+pub use chip8::Chip8;
+pub use superchip::Superchip;
 
 pub trait Interpreter {
     fn display(&self) -> Vec<&[u8]>;

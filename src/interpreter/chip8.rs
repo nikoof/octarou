@@ -2,14 +2,8 @@ use super::{instruction::Instruction, Interpreter};
 use anyhow::{anyhow, Result};
 
 const PROGRAM_ADDRESS: usize = 0x200;
-
 const FONT_ADDRESS: usize = 0x50;
-const BIGFONT_ADDRESS: usize = FONT_ADDRESS + 160;
-
-const FONT_WIDTH: usize = 5;
-const BIGFONT_WIDTH: usize = 10;
-
-const FONT: [u8; 240] = [
+const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -26,28 +20,12 @@ const FONT: [u8; 240] = [
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-    0xff, 0xff, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xff, 0xff, // 0
-    0x18, 0x78, 0x78, 0x18, 0x18, 0x18, 0x18, 0x18, 0xff, 0xff, // 1
-    0xff, 0xff, 0x03, 0x03, 0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, // 2
-    0xff, 0xff, 0x03, 0x03, 0xff, 0xff, 0x03, 0x03, 0xff, 0xff, // 3
-    0xc3, 0xc3, 0xc3, 0xc3, 0xff, 0xff, 0x03, 0x03, 0x03, 0x03, // 4
-    0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, 0x03, 0x03, 0xff, 0xff, // 5
-    0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, // 6
-    0xff, 0xff, 0x03, 0x03, 0x06, 0x0c, 0x18, 0x18, 0x18, 0x18, // 7
-    0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, // 8
-    0xff, 0xff, 0xc3, 0xc3, 0xff, 0xff, 0x03, 0x03, 0xff, 0xff, // 9
-    0x7e, 0xff, 0xc3, 0xc3, 0xc3, 0xff, 0xff, 0xc3, 0xc3, 0xc3, // A
-    0xfc, 0xfc, 0xc3, 0xc3, 0xfc, 0xfc, 0xc3, 0xc3, 0xfc, 0xfc, // B
-    0x3c, 0xff, 0xc3, 0xc0, 0xc0, 0xc0, 0xc0, 0xc3, 0xff, 0x3c, // C
-    0xfc, 0xfe, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xc3, 0xfe, 0xfc, // D
-    0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, // E
-    0xff, 0xff, 0xc0, 0xc0, 0xff, 0xff, 0xc0, 0xc0, 0xc0, 0xc0, // F
 ];
 
-const DISPLAY_WIDTH: usize = 128;
-const DISPLAY_HEIGHT: usize = 64;
+const DISPLAY_WIDTH: usize = 64;
+const DISPLAY_HEIGHT: usize = 32;
 
-pub struct Superchip {
+pub struct Chip8 {
     memory: [u8; 4096],
     pc: usize,
     index: usize,
@@ -55,18 +33,16 @@ pub struct Superchip {
     delay_timer: u8,
     sound_timer: u8,
     variables: [u8; 16],
-    hires: bool,
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-    running: bool,
 }
 
-impl Default for Superchip {
+impl Default for Chip8 {
     fn default() -> Self {
         Self::new(None)
     }
 }
 
-impl Superchip {
+impl Chip8 {
     pub fn new(program: Option<&[u8]>) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
@@ -82,14 +58,12 @@ impl Superchip {
             delay_timer: 0,
             sound_timer: 0,
             variables: [0; 16],
-            hires: false,
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-            running: true,
         }
     }
 }
 
-impl Interpreter for Superchip {
+impl Interpreter for Chip8 {
     fn display(&self) -> Vec<&[u8]> {
         self.display.iter().map(|row| row.as_slice()).collect()
     }
@@ -114,69 +88,76 @@ impl Interpreter for Superchip {
     ) -> Result<()> {
         use Instruction::*;
         match instruction {
-            ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
-            Exit => self.running = false,
-            Jump { address } => self.pc = address,
+            ClearScreen => Ok(self.display.iter_mut().for_each(|e| e.fill(0))),
+            Jump { address } => Ok(self.pc = address),
             JumpOffset {
                 address,
-                offset_register,
+                offset_register: _,
             } => {
-                self.pc = address + self.variables[offset_register] as usize;
+                self.pc = address + self.variables[0] as usize;
+                Ok(())
             }
-            SetLiteral { dest, value } => self.variables[dest] = value,
+            SetLiteral { dest, value } => Ok(self.variables[dest] = value),
             AddLiteral { dest, value } => {
-                self.variables[dest] = self.variables[dest].wrapping_add(value)
+                self.variables[dest] = self.variables[dest].wrapping_add(value);
+                Ok(())
             }
-            SetIndex { src } => self.index = src,
-            SetIndexFont { src, big } => {
+            SetIndex { src } => Ok(self.index = src),
+            SetIndexFont { src, big: _ } => {
                 let character = (self.variables[src] & 0x0F) as usize;
-                if big {
-                    self.index = BIGFONT_ADDRESS + character * BIGFONT_WIDTH;
-                } else {
-                    self.index = FONT_ADDRESS + character * FONT_WIDTH;
-                }
+                self.index = FONT_ADDRESS + 5 * character;
+                Ok(())
             }
             AddIndex { src } => {
                 let (res, overflow) = self.index.overflowing_add(self.variables[src] as usize);
                 self.index = res;
                 self.variables[0xF] = overflow as u8;
+                Ok(())
             }
             Call { address } => {
                 self.stack.push(self.pc);
                 self.pc = address;
+                Ok(())
             }
             Return => {
                 self.pc = self.stack.pop().expect("Don't pop out of main");
+                Ok(())
             }
             SkipEq { x, y } => {
                 if self.variables[x] == self.variables[y] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipNotEq { x, y } => {
                 if self.variables[x] != self.variables[y] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipEqLiteral { x, value } => {
                 if self.variables[x] == value {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipNotEqLiteral { x, value } => {
                 if self.variables[x] != value {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipIfKey { key_register } => {
                 if keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             SkipIfNotKey { key_register } => {
                 if !keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
+                Ok(())
             }
             GetKey { dest } => {
                 if let Some(key) = keys_released.iter().position(|&e| e) {
@@ -184,149 +165,90 @@ impl Interpreter for Superchip {
                 } else {
                     self.pc -= 2;
                 }
+                Ok(())
             }
             Set { dest, src } => {
                 self.variables[dest] = self.variables[src];
+                Ok(())
             }
             Or { lhs, rhs } => {
                 self.variables[lhs] |= self.variables[rhs];
+                Ok(())
             }
             And { lhs, rhs } => {
                 self.variables[lhs] &= self.variables[rhs];
+                Ok(())
             }
             Xor { lhs, rhs } => {
                 self.variables[lhs] ^= self.variables[rhs];
+                Ok(())
             }
             Add { lhs, rhs } => {
                 let (res, overflow) = self.variables[lhs].overflowing_add(self.variables[rhs]);
                 self.variables[lhs] = res;
                 self.variables[0xF] = overflow as u8;
+                Ok(())
             }
             Sub { lhs, rhs, dest } => {
                 let (res, overflow) = self.variables[lhs].overflowing_sub(self.variables[rhs]);
                 self.variables[dest] = res;
                 self.variables[0xF] = !overflow as u8;
+                Ok(())
             }
-            LeftShift { lhs, rhs: _ } => {
+            LeftShift { lhs, rhs } => {
+                self.variables[lhs] = self.variables[rhs];
                 let flag = self.variables[lhs] >> 7;
                 self.variables[lhs] <<= 1;
                 self.variables[0xF] = flag;
+                Ok(())
             }
-            RightShift { lhs, rhs: _ } => {
+            RightShift { lhs, rhs } => {
+                self.variables[lhs] = self.variables[rhs];
                 let flag = self.variables[lhs] & 1;
                 self.variables[lhs] >>= 1;
                 self.variables[0xF] = flag;
+                Ok(())
             }
             GetDelay { dest } => {
                 self.variables[dest] = self.delay_timer;
+                Ok(())
             }
             SetDelay { src } => {
                 self.delay_timer = self.variables[src];
+                Ok(())
             }
             SetSound { src } => {
                 self.sound_timer = self.variables[src];
+                Ok(())
             }
-            Hires => self.hires = true,
-            Lores => self.hires = false,
             Draw {
                 x,
                 y,
                 sprite_height,
             } => {
-                if self.hires {
-                    let x = self.variables[x] as usize % DISPLAY_WIDTH;
-                    let y = self.variables[y] as usize % DISPLAY_HEIGHT;
-                    self.variables[0xF] = 0;
+                let x = self.variables[x] as usize % DISPLAY_WIDTH;
+                let y = self.variables[y] as usize % DISPLAY_HEIGHT;
+                self.variables[0xF] = 0;
 
-                    if sprite_height == 0 {
-                        for y_offset in 0..16 {
-                            if y + y_offset >= DISPLAY_HEIGHT {
-                                break;
-                            }
-                            let sprite_row = u16::from_be_bytes([
-                                self.memory[self.index + 2 * y_offset],
-                                self.memory[self.index + 2 * y_offset + 1],
-                            ]);
-                            for x_offset in 0..16 {
-                                if x + x_offset >= DISPLAY_WIDTH {
-                                    break;
-                                }
-                                let pixel = ((sprite_row >> (15 - x_offset)) & 1) as u8;
-                                self.variables[0xF] |=
-                                    self.display[y + y_offset][x + x_offset] & pixel;
-                                self.display[y + y_offset][x + x_offset] ^= pixel;
-                            }
-                        }
-                    } else {
-                        for y_offset in 0..sprite_height {
-                            if y + y_offset >= DISPLAY_HEIGHT {
-                                break;
-                            }
-                            let sprite_row = self.memory[self.index + y_offset];
-                            for x_offset in 0..8 {
-                                if x + x_offset >= DISPLAY_WIDTH {
-                                    break;
-                                }
-                                let pixel = (sprite_row >> (7 - x_offset)) & 1;
-                                self.variables[0xF] |=
-                                    self.display[y + y_offset][x + x_offset] & pixel;
-                                self.display[y + y_offset][x + x_offset] ^= pixel;
-                            }
-                        }
+                for y_offset in 0..sprite_height {
+                    if y + y_offset >= DISPLAY_HEIGHT {
+                        break;
                     }
-                } else if !self.hires {
-                    let x = (self.variables[x] as usize * 2) % DISPLAY_WIDTH;
-                    let y = (self.variables[y] as usize * 2) % DISPLAY_HEIGHT;
-                    self.variables[0xF] = 0;
-
-                    for y_offset in 0..sprite_height * 2 {
-                        if y + y_offset >= DISPLAY_HEIGHT {
+                    let sprite_row = self.memory[self.index + y_offset];
+                    for x_offset in 0..8 {
+                        if x + x_offset >= DISPLAY_WIDTH {
                             break;
                         }
-                        let sprite_row = self.memory[self.index + y_offset / 2];
-                        for x_offset in 0..16 {
-                            if x + x_offset >= DISPLAY_WIDTH {
-                                break;
-                            }
-                            let pixel = (sprite_row >> (7 - x_offset / 2)) & 1;
-                            self.variables[0xF] |= self.display[y + y_offset][x + x_offset] & pixel;
-                            self.display[y + y_offset][x + x_offset] ^= pixel;
-                        }
+                        let pixel = (sprite_row >> (7 - x_offset)) & 1;
+                        self.variables[0xF] |= self.display[y + y_offset][x + x_offset] & pixel;
+                        self.display[y + y_offset][x + x_offset] ^= pixel;
                     }
                 }
-            }
-            ScrollRight => {
-                let amount = match self.hires {
-                    true => 4,
-                    false => 2 * 4,
-                };
-
-                self.display.iter_mut().for_each(|row| {
-                    row.rotate_right(amount);
-                    row[0..amount].fill(0);
-                });
-            }
-            ScrollLeft => {
-                let amount = match self.hires {
-                    true => 4,
-                    false => 2 * 4,
-                };
-
-                self.display.iter_mut().for_each(|row| {
-                    row.rotate_left(amount);
-                    row[DISPLAY_WIDTH - amount..].fill(0);
-                });
-            }
-            ScrollDown { amount } => {
-                let amount = match self.hires {
-                    true => amount,
-                    false => 2 * amount,
-                };
-                self.display.rotate_right(amount);
-                self.display[0..amount].fill([0; DISPLAY_WIDTH]);
+                Ok(())
             }
             Random { x, mask } => {
                 self.variables[x] = rand::random::<u8>() & mask;
+                Ok(())
             }
             DecimalConversion { src } => {
                 let mut n = self.variables[src];
@@ -335,21 +257,26 @@ impl Interpreter for Superchip {
                     self.memory[self.index + i] = n % 10;
                     n /= 10;
                 }
+                Ok(())
             }
             StoreMemory { registers } => {
                 for i in 0..=registers {
                     self.memory[self.index + i] = self.variables[i];
+                    // self.index = i;
                 }
+                Ok(())
             }
             LoadMemory { registers } => {
                 for i in 0..=registers {
                     self.variables[i] = self.memory[self.index + i];
+                    // self.index = i;
                 }
+                Ok(())
             }
-            SaveFlags { x: _ } => (),
-            LoadFlags { x: _ } => (),
+            _ => Err(anyhow!(
+                "Instruction {:?} not in Chip8 instruction set.",
+                instruction
+            )),
         }
-
-        Ok(())
     }
 }
