@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     };
 
     let program = read_program_from_file(args.program.as_path())?;
-    let app = Octarou::new(Chip8::new(args.cpu_speed, Some(&program)));
+    let app = Octarou::new(Chip8::new(Some(&program)));
 
     eframe::run_native("Octarou", options, Box::new(move |_cc| Box::new(app))).unwrap();
 

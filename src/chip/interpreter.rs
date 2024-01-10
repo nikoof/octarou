@@ -4,7 +4,6 @@ use std::time;
 use super::instruction::Instruction;
 
 pub trait Interpreter {
-    fn speed(&self) -> u64;
     fn display(&self) -> Vec<&[u8]>;
 
     fn update_timers(&mut self);
@@ -12,17 +11,18 @@ pub trait Interpreter {
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: impl Fn(u8) -> bool,
-        get_key: impl Fn() -> Option<u8>,
+        keys_pressed: &[bool; 16],
+        keys_released: &[bool; 16],
     ) -> Result<()>;
 
     fn tick(
         &mut self,
-        is_key_pressed: impl Fn(u8) -> bool,
-        get_key: impl Fn() -> Option<u8>,
+        keys_down: &[bool; 16],
+        keys_released: &[bool; 16],
+        speed: u64,
     ) -> Result<()> {
         let timer_cycle_duration = time::Duration::from_nanos(1_000_000_000 / 60);
-        let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / self.speed());
+        let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / speed);
 
         let now = time::Instant::now();
         let mut total_elapsed = time::Duration::from_secs(0);
@@ -32,7 +32,7 @@ pub trait Interpreter {
         'cpu: loop {
             match self.next_instruction() {
                 Ok(next_instruction) => {
-                    self.execute_instruction(next_instruction, &is_key_pressed, &get_key)?
+                    self.execute_instruction(next_instruction, keys_down, keys_released)?
                 }
                 Err(e) => eprintln!("{}", e),
             }

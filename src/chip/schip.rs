@@ -47,9 +47,7 @@ const FONT: [u8; 240] = [
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 64;
 
-const DEFAULT_SPEED: u64 = 700;
-
-pub struct Schip {
+pub struct Superchip {
     memory: [u8; 4096],
     pc: usize,
     index: usize,
@@ -58,19 +56,18 @@ pub struct Schip {
     sound_timer: u8,
     variables: [u8; 16],
     hires: bool,
-    pub display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+    display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     running: bool,
-    speed: u64,
 }
 
-impl Default for Schip {
+impl Default for Superchip {
     fn default() -> Self {
-        Self::new(DEFAULT_SPEED, None)
+        Self::new(None)
     }
 }
 
-impl Schip {
-    pub fn new(speed: u64, program: Option<&[u8]>) -> Self {
+impl Superchip {
+    pub fn new(program: Option<&[u8]>) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         if let Some(program) = program {
@@ -88,16 +85,11 @@ impl Schip {
             hires: false,
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             running: true,
-            speed,
         }
     }
 }
 
-impl Interpreter for Schip {
-    fn speed(&self) -> u64 {
-        self.speed
-    }
-
+impl Interpreter for Superchip {
     fn display(&self) -> Vec<&[u8]> {
         self.display.iter().map(|row| row.as_slice()).collect()
     }
@@ -117,8 +109,8 @@ impl Interpreter for Schip {
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: impl Fn(u8) -> bool,
-        get_key: impl Fn() -> Option<u8>,
+        keys_down: &[bool; 16],
+        keys_released: &[bool; 16],
     ) -> Result<()> {
         use Instruction::*;
         match instruction {
@@ -177,18 +169,18 @@ impl Interpreter for Schip {
                 }
             }
             SkipIfKey { key_register } => {
-                if is_key_pressed(self.variables[key_register]) {
+                if keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             SkipIfNotKey { key_register } => {
-                if !is_key_pressed(self.variables[key_register]) {
+                if !keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             GetKey { dest } => {
-                if let Some(key) = get_key() {
-                    self.variables[dest] = key;
+                if let Some(key) = keys_released.iter().position(|&e| e) {
+                    self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
                 }

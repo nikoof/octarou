@@ -5,4 +5,4 @@ mod schip;
 
 pub use chip8::Chip8;
 pub use interpreter::Interpreter;
-pub use schip::Schip;
+pub use schip::Superchip;

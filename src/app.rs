@@ -8,9 +8,10 @@ enum InterpreterMode {
 }
 
 pub struct Octarou {
-    interpreter: Chip8,
+    interpreter: Box<dyn Interpreter>,
     logs: String,
     mode: InterpreterMode,
+    speed: u64,
 
     screen_size: egui::Vec2,
 }
@@ -18,15 +19,21 @@ pub struct Octarou {
 impl eframe::App for Octarou {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.screen_size = ctx.screen_rect().size();
+
+        let keys_down = (0..16)
+            .map(|key| ctx.input(|i| i.key_down(chip8_key_to_egui_key(key).unwrap())))
+            .collect::<Vec<bool>>()
+            .try_into()
+            .expect("Should never panic");
+
+        let keys_released = (0..16)
+            .map(|key| ctx.input(|i| i.key_released(chip8_key_to_egui_key(key).unwrap())))
+            .collect::<Vec<bool>>()
+            .try_into()
+            .expect("Should never panic");
+
         self.interpreter
-            .tick(
-                |key| ctx.input(|i| i.key_down(chip8_key_to_egui_key(key).unwrap())),
-                || {
-                    (0..16).find(|&key| {
-                        ctx.input(|i| i.key_released(chip8_key_to_egui_key(key).unwrap()))
-                    })
-                },
-            )
+            .tick(&keys_down, &keys_released, self.speed)
             .unwrap();
 
         self.ui(ctx);
@@ -37,9 +44,10 @@ impl eframe::App for Octarou {
 impl Octarou {
     pub fn new(interpreter: Chip8) -> Self {
         Self {
-            interpreter,
+            interpreter: Box::new(interpreter),
             mode: InterpreterMode::Chip8,
             logs: "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat.".to_owned(),
+            speed: 700,
 
             screen_size: egui::Vec2::ZERO,
         }
@@ -73,7 +81,7 @@ impl Octarou {
                     ui.heading("Interpreter controls");
 
                     ui.label("Interpreter speed (CPU Cycles / second)");
-                    ui.add(egui::Slider::new(&mut self.interpreter.speed, 100..=2000));
+                    ui.add(egui::Slider::new(&mut self.speed, 100..=2000));
 
                     ui.label("Interpreter mode");
                     egui::ComboBox::from_id_source("mode-selector")

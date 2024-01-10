@@ -26,8 +26,6 @@ const FONT: [u8; 80] = [
 const DISPLAY_WIDTH: usize = 64;
 const DISPLAY_HEIGHT: usize = 32;
 
-const DEFAULT_SPEED: u64 = 700;
-
 pub struct Chip8 {
     memory: [u8; 4096],
     pc: usize,
@@ -37,17 +35,16 @@ pub struct Chip8 {
     sound_timer: u8,
     variables: [u8; 16],
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-    pub speed: u64,
 }
 
 impl Default for Chip8 {
     fn default() -> Self {
-        Self::new(DEFAULT_SPEED, None)
+        Self::new(None)
     }
 }
 
 impl Chip8 {
-    pub fn new(speed: u64, program: Option<&[u8]>) -> Self {
+    pub fn new(program: Option<&[u8]>) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         if let Some(program) = program {
@@ -63,16 +60,11 @@ impl Chip8 {
             sound_timer: 0,
             variables: [0; 16],
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-            speed,
         }
     }
 }
 
 impl Interpreter for Chip8 {
-    fn speed(&self) -> u64 {
-        self.speed
-    }
-
     fn display(&self) -> Vec<&[u8]> {
         self.display.iter().map(|row| row.as_slice()).collect()
     }
@@ -92,8 +84,8 @@ impl Interpreter for Chip8 {
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: impl Fn(u8) -> bool,
-        get_key: impl Fn() -> Option<u8>,
+        keys_down: &[bool; 16],
+        keys_released: &[bool; 16],
     ) -> Result<()> {
         use Instruction::*;
         match instruction {
@@ -157,20 +149,20 @@ impl Interpreter for Chip8 {
                 Ok(())
             }
             SkipIfKey { key_register } => {
-                if is_key_pressed(self.variables[key_register]) {
+                if keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             }
             SkipIfNotKey { key_register } => {
-                if !is_key_pressed(self.variables[key_register]) {
+                if !keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
                 Ok(())
             }
             GetKey { dest } => {
-                if let Some(key) = get_key() {
-                    self.variables[dest] = key;
+                if let Some(key) = keys_released.iter().position(|&e| e) {
+                    self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
                 }
