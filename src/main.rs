@@ -19,15 +19,19 @@ pub mod chip;
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    const SCALE: f32 = 15.0;
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([640.0, 320.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_min_inner_size([640.0, 320.0])
+            .with_inner_size([80.0 * SCALE, 40.0 * SCALE])
+            .with_resizable(false),
         ..Default::default()
     };
 
     let program = read_program_from_file(args.program.as_path())?;
     let app = Octarou::new(Chip8::new(args.cpu_speed, Some(&program)));
 
-    eframe::run_native("Octarou", options, Box::new(move |_| Box::new(app))).unwrap();
+    eframe::run_native("Octarou", options, Box::new(move |_cc| Box::new(app))).unwrap();
 
     Ok(())
 }

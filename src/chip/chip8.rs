@@ -37,7 +37,7 @@ pub struct Chip8 {
     sound_timer: u8,
     variables: [u8; 16],
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-    speed: u64,
+    pub speed: u64,
 }
 
 impl Default for Chip8 {
@@ -89,11 +89,11 @@ impl Interpreter for Chip8 {
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+    fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: F,
-        get_key: G,
+        is_key_pressed: impl Fn(u8) -> bool,
+        get_key: impl Fn() -> Option<u8>,
     ) -> Result<()> {
         use Instruction::*;
         match instruction {

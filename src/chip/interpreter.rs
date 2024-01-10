@@ -9,18 +9,18 @@ pub trait Interpreter {
 
     fn update_timers(&mut self);
     fn next_instruction(&mut self) -> Result<Instruction>;
-    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+    fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: F,
-        get_key: G,
+        is_key_pressed: impl Fn(u8) -> bool,
+        get_key: impl Fn() -> Option<u8>,
     ) -> Result<()>;
 
-    fn tick<F, G>(&mut self, is_key_pressed: F, get_key: G) -> Result<()>
-    where
-        F: Fn(u8) -> bool,
-        G: Fn() -> Option<u8>,
-    {
+    fn tick(
+        &mut self,
+        is_key_pressed: impl Fn(u8) -> bool,
+        get_key: impl Fn() -> Option<u8>,
+    ) -> Result<()> {
         let timer_cycle_duration = time::Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / self.speed());
 

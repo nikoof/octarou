@@ -114,11 +114,11 @@ impl Interpreter for Schip {
         Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
     }
 
-    fn execute_instruction<F: Fn(u8) -> bool, G: Fn() -> Option<u8>>(
+    fn execute_instruction(
         &mut self,
         instruction: Instruction,
-        is_key_pressed: F,
-        get_key: G,
+        is_key_pressed: impl Fn(u8) -> bool,
+        get_key: impl Fn() -> Option<u8>,
     ) -> Result<()> {
         use Instruction::*;
         match instruction {
