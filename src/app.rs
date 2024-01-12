@@ -109,9 +109,8 @@ impl Octarou {
     }
 
     fn controls(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::right("controls")
-            .resizable(false)
-            // .exact_width(0.4 * self.screen_size.x)
+        egui::SidePanel::right("logs")
+            .resizable(true)
             .show(ctx, |ui| {
                 ui.heading("Logs");
                 egui_logger::logger_ui(ui);
@@ -119,7 +118,7 @@ impl Octarou {
     }
 
     fn logs(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::bottom("logs")
+        egui::TopBottomPanel::bottom("controls")
             .exact_height(0.2 * self.screen_size.y)
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::default().with_cross_justify(true), |ui| {
@@ -161,44 +160,44 @@ impl Octarou {
     }
 
     fn interpreter_display(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default()
-            .frame(egui::Frame::default().fill(egui::Color32::BLACK))
-            .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    if let Some(interpreter) = &self.interpreter {
-                        let size = ui.available_size_before_wrap();
-                        let scale = egui::vec2(size.x / 64.0, size.y / 32.0);
-
-                        let (response, painter) =
-                            ui.allocate_painter(size, egui::Sense::focusable_noninteractive());
-                        let rect = response.rect;
-
-                        for (y, row) in interpreter.display().iter().enumerate() {
-                            for (x, &cell) in row.iter().enumerate() {
-                                if cell == 1u8 {
-                                    let points = [
-                                        rect.min
-                                            + egui::Vec2::new(
-                                                x as f32 * scale.x,
-                                                y as f32 * scale.y,
-                                            ),
-                                        rect.min
-                                            + egui::Vec2::new(
-                                                (x + 1) as f32 * scale.x,
-                                                (y + 1) as f32 * scale.y,
-                                            ),
-                                    ];
-                                    painter.rect_filled(
-                                        egui::Rect::from_points(&points),
-                                        egui::Rounding::ZERO,
-                                        egui::Color32::WHITE,
-                                    );
-                                }
-                            }
-                        }
-                    }
+        egui::CentralPanel::default().show(ctx, |ui| {
+            egui::Frame::default()
+                .fill(egui::Color32::BLACK)
+                .show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        let (response, painter) = ui.allocate_painter(
+                            ui.available_size_before_wrap(),
+                            egui::Sense::focusable_noninteractive(),
+                        );
+                        self.paint_grid(&painter, response.rect);
+                    });
                 });
-            });
+        });
+    }
+
+    fn paint_grid(&self, painter: &egui::Painter, rect: egui::Rect) {
+        if let Some(interpreter) = &self.interpreter {
+            let scale = egui::vec2(rect.size().x / 64.0, rect.size().y / 32.0);
+            for (y, row) in interpreter.display().iter().enumerate() {
+                for (x, &cell) in row.iter().enumerate() {
+                    if cell == 1u8 {
+                        let points = [
+                            rect.min + egui::Vec2::new(x as f32 * scale.x, y as f32 * scale.y),
+                            rect.min
+                                + egui::Vec2::new(
+                                    (x + 1) as f32 * scale.x,
+                                    (y + 1) as f32 * scale.y,
+                                ),
+                        ];
+                        painter.rect_filled(
+                            egui::Rect::from_points(&points),
+                            egui::Rounding::ZERO,
+                            egui::Color32::WHITE,
+                        );
+                    }
+                }
+            }
+        }
     }
 }
 

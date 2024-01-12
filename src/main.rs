@@ -12,16 +12,11 @@ mod interpreter;
 fn main() -> Result<()> {
     egui_logger::init().unwrap();
 
-    for i in 0..1000 {
-        log::info!("{}", i);
-    }
-
-    const SCALE: f32 = 18.0;
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_min_inner_size([640.0, 320.0])
-            .with_inner_size([80.0 * SCALE, 40.0 * SCALE])
-            .with_resizable(false),
+            .with_min_inner_size([800.0, 400.0])
+            .with_inner_size([1200.0, 600.0])
+            .with_resizable(true),
         ..Default::default()
     };
 
