@@ -9,7 +9,7 @@ use std::{fs::File, path::Path};
 use crate::interpreter::{Chip8, Interpreter, Superchip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum InterpreterMode {
+enum Mode {
     Chip8,
     SuperChip,
 }
@@ -20,15 +20,33 @@ enum Tab {
     Logs,
 }
 
+#[derive(Clone, PartialEq, Eq)]
+struct Program {
+    file: PathBuf,
+    data: Vec<u8>,
+}
+
+impl Program {
+    fn new(file: &Path) -> Result<Self> {
+        let mut data = Vec::new();
+        File::open(file)?.read_to_end(&mut data)?;
+        let file = file.to_path_buf();
+
+        Ok(Self { file, data })
+    }
+}
+
 pub struct Octarou {
     interpreter: Option<Box<dyn Interpreter>>,
 
-    mode: InterpreterMode,
+    mode: Mode,
     speed: u64,
 
     screen_size: egui::Vec2,
-    open_dialog: Option<FileDialog>,
+    dialog: Option<FileDialog>,
     open_file: Option<PathBuf>,
+
+    current_program: Option<Program>,
 
     current_tab: Tab,
 }
@@ -57,17 +75,6 @@ impl eframe::App for Octarou {
                 .unwrap();
         }
 
-        if let Some(dialog) = &mut self.open_dialog {
-            if dialog.show(ctx).selected() {
-                if let Some(file) = dialog.path() {
-                    self.open_file = Some(file.to_path_buf());
-                    self.interpreter = Some(Box::new(Chip8::new(Some(
-                        &read_program_from_file(file).unwrap(),
-                    ))));
-                }
-            }
-        }
-
         self.ui(ctx);
         ctx.request_repaint();
     }
@@ -77,22 +84,35 @@ impl Octarou {
     pub fn new() -> Self {
         Self {
             interpreter: None,
-            mode: InterpreterMode::Chip8,
+            mode: Mode::Chip8,
             speed: 700,
 
             screen_size: egui::Vec2::ZERO,
-            open_dialog: None,
+            dialog: None,
             open_file: None,
 
             current_tab: Tab::Controls,
+            current_program: None,
         }
     }
 
-    fn input(&mut self, ctx: &egui::Context) {}
+    fn input(&mut self, ctx: &egui::Context) {
+        ctx.input_mut(|i| {
+            if i.consume_key(egui::Modifiers::CTRL, egui::Key::R) {
+                if let Some(Program { ref data, .. }) = self.current_program {
+                    self.interpreter = Some(match self.mode {
+                        Mode::Chip8 => Box::new(Chip8::new(Some(data))),
+                        Mode::SuperChip => Box::new(Superchip::new(Some(data))),
+                    });
+                }
+            }
+        });
+    }
 
     fn ui(&mut self, ctx: &egui::Context) {
         self.side_panel(ctx);
         self.central_panel(ctx);
+        self.file_dialog(ctx);
     }
 
     fn side_panel(&mut self, ctx: &egui::Context) {
@@ -119,13 +139,26 @@ impl Octarou {
                 egui::ComboBox::from_id_source("mode-selector")
                     .selected_text(format!("{:?}", self.mode))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.mode, InterpreterMode::Chip8, "Chip8");
-                        ui.selectable_value(
-                            &mut self.mode,
-                            InterpreterMode::SuperChip,
-                            "SuperChip",
-                        );
+                        if ui
+                            .selectable_value(&mut self.mode, Mode::Chip8, "Chip8")
+                            .clicked()
+                        {
+                            if let Some(Program { ref data, .. }) = self.current_program {
+                                self.interpreter =
+                                    Some(Box::new(Chip8::new(Some(data.as_slice()))));
+                            }
+                        }
+                        if ui
+                            .selectable_value(&mut self.mode, Mode::SuperChip, "SuperChip")
+                            .clicked()
+                        {
+                            if let Some(Program { ref data, .. }) = self.current_program {
+                                self.interpreter =
+                                    Some(Box::new(Superchip::new(Some(data.as_slice()))));
+                            }
+                        }
                     });
+
                 ui.end_row();
             });
     }
@@ -133,15 +166,7 @@ impl Octarou {
     fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.menu_button(egui::RichText::new("\u{2699} Menu").heading(), |ui| {
             if ui.button("Open").clicked() {
-                let filter = Box::new({
-                    let ext = Some(OsStr::new("ch8"));
-                    move |path: &Path| -> bool { path.extension() == ext }
-                });
-
-                let mut dialog =
-                    FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
-                dialog.open();
-                self.open_dialog = Some(dialog);
+                self.open_file_dialog();
                 ui.close_menu();
             }
 
@@ -192,7 +217,10 @@ impl Octarou {
 
     fn paint_grid(&self, painter: &egui::Painter, rect: egui::Rect) {
         if let Some(interpreter) = &self.interpreter {
-            let scale = egui::vec2(rect.size().x / 64.0, rect.size().y / 32.0);
+            let scale = egui::vec2(
+                rect.size().x / interpreter.display()[0].len() as f32,
+                rect.size().y / interpreter.display().len() as f32,
+            );
             for (y, row) in interpreter.display().iter().enumerate() {
                 for (x, &cell) in row.iter().enumerate() {
                     if cell == 1u8 {
@@ -218,13 +246,32 @@ impl Octarou {
             }
         }
     }
-}
 
-fn read_program_from_file(path: &Path) -> Result<Vec<u8>> {
-    let mut buf = Vec::new();
-    let mut file = File::open(path)?;
-    file.read_to_end(&mut buf)?;
-    Ok(buf)
+    fn open_file_dialog(&mut self) {
+        let filter = Box::new({
+            let ext = Some(OsStr::new("ch8"));
+            move |path: &Path| -> bool { path.extension() == ext }
+        });
+        let mut dialog = FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
+        dialog.open();
+        self.dialog = Some(dialog);
+    }
+
+    fn file_dialog(&mut self, ctx: &egui::Context) {
+        if let Some(dialog) = &mut self.dialog {
+            if dialog.show(ctx).selected() {
+                if let Some(file) = dialog.path() {
+                    self.current_program = Program::new(file).ok();
+                    if let Some(Program { ref data, .. }) = self.current_program {
+                        self.interpreter = Some(match self.mode {
+                            Mode::Chip8 => Box::new(Chip8::new(Some(data))),
+                            Mode::SuperChip => Box::new(Superchip::new(Some(data))),
+                        });
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn chip8_key_to_egui_key(key: u8) -> Option<egui::Key> {
