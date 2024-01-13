@@ -65,14 +65,8 @@
             rustc
             rustfmt
             rust-analyzer
-            libGL
-            libxkbcommon
-            wayland
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
           ];
+
           RUST_SRC_PATH = rustPlatform.rustLibSrc;
           LD_LIBRARY_PATH = libPath;
         };
