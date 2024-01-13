@@ -96,15 +96,19 @@ impl Octarou {
         }
     }
 
+    fn load_interpreter(&mut self) {
+        if let Some(Program { ref data, .. }) = self.current_program {
+            self.interpreter = Some(match self.mode {
+                Mode::Chip8 => Box::new(Chip8::new(data)),
+                Mode::SuperChip => Box::new(Superchip::new(data)),
+            });
+        }
+    }
+
     fn input(&mut self, ctx: &egui::Context) {
         ctx.input_mut(|i| {
             if i.consume_key(egui::Modifiers::CTRL, egui::Key::R) {
-                if let Some(Program { ref data, .. }) = self.current_program {
-                    self.interpreter = Some(match self.mode {
-                        Mode::Chip8 => Box::new(Chip8::new(Some(data))),
-                        Mode::SuperChip => Box::new(Superchip::new(Some(data))),
-                    });
-                }
+                self.load_interpreter();
             }
         });
     }
@@ -139,23 +143,12 @@ impl Octarou {
                 egui::ComboBox::from_id_source("mode-selector")
                     .selected_text(format!("{:?}", self.mode))
                     .show_ui(ui, |ui| {
-                        if ui
-                            .selectable_value(&mut self.mode, Mode::Chip8, "Chip8")
-                            .clicked()
-                        {
-                            if let Some(Program { ref data, .. }) = self.current_program {
-                                self.interpreter =
-                                    Some(Box::new(Chip8::new(Some(data.as_slice()))));
-                            }
-                        }
-                        if ui
-                            .selectable_value(&mut self.mode, Mode::SuperChip, "SuperChip")
-                            .clicked()
-                        {
-                            if let Some(Program { ref data, .. }) = self.current_program {
-                                self.interpreter =
-                                    Some(Box::new(Superchip::new(Some(data.as_slice()))));
-                            }
+                        let chip8 = ui.selectable_value(&mut self.mode, Mode::Chip8, "Chip8");
+                        let superchip =
+                            ui.selectable_value(&mut self.mode, Mode::SuperChip, "SuperChip");
+
+                        if chip8.clicked() || superchip.clicked() {
+                            self.load_interpreter();
                         }
                     });
 
@@ -262,12 +255,7 @@ impl Octarou {
             if dialog.show(ctx).selected() {
                 if let Some(file) = dialog.path() {
                     self.current_program = Program::new(file).ok();
-                    if let Some(Program { ref data, .. }) = self.current_program {
-                        self.interpreter = Some(match self.mode {
-                            Mode::Chip8 => Box::new(Chip8::new(Some(data))),
-                            Mode::SuperChip => Box::new(Superchip::new(Some(data))),
-                        });
-                    }
+                    self.load_interpreter();
                 }
             }
         }

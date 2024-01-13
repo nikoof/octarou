@@ -36,19 +36,11 @@ pub struct Chip8 {
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
 }
 
-impl Default for Chip8 {
-    fn default() -> Self {
-        Self::new(None)
-    }
-}
-
 impl Chip8 {
-    pub fn new(program: Option<&[u8]>) -> Self {
+    pub fn new(program: &[u8]) -> Self {
         let mut memory = [0u8; 4096];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
-        if let Some(program) = program {
-            memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
-        }
+        memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
 
         Self {
             memory,
