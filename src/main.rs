@@ -3,8 +3,6 @@
 
 use anyhow::Result;
 use app::Octarou;
-use eframe::egui;
-use egui_logger;
 
 mod app;
 mod interpreter;
@@ -13,7 +11,7 @@ fn main() -> Result<()> {
     egui_logger::init().unwrap();
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
+        viewport: eframe::egui::ViewportBuilder::default()
             .with_min_inner_size([800.0, 400.0])
             .with_inner_size([1200.0, 600.0])
             .with_resizable(true),
