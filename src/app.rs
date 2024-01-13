@@ -14,6 +14,12 @@ enum InterpreterMode {
     SuperChip,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Controls,
+    Logs,
+}
+
 pub struct Octarou {
     interpreter: Option<Box<dyn Interpreter>>,
 
@@ -23,6 +29,8 @@ pub struct Octarou {
     screen_size: egui::Vec2,
     open_dialog: Option<FileDialog>,
     open_file: Option<PathBuf>,
+
+    current_tab: Tab,
 }
 
 impl eframe::App for Octarou {
@@ -40,6 +48,8 @@ impl eframe::App for Octarou {
             .collect::<Vec<bool>>()
             .try_into()
             .expect("Should never panic");
+
+        self.input(ctx);
 
         if let Some(interpreter) = &mut self.interpreter {
             interpreter
@@ -73,105 +83,110 @@ impl Octarou {
             screen_size: egui::Vec2::ZERO,
             open_dialog: None,
             open_file: None,
+
+            current_tab: Tab::Controls,
         }
     }
 
+    fn input(&mut self, ctx: &egui::Context) {}
+
     fn ui(&mut self, ctx: &egui::Context) {
-        self.menu(ctx);
-        self.controls(ctx);
-        self.logs(ctx);
-        self.interpreter_display(ctx);
+        self.side_panel(ctx);
+        self.central_panel(ctx);
     }
 
-    fn menu(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("menubar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Open").clicked() {
-                        let filter = Box::new({
-                            let ext = Some(OsStr::new("ch8"));
-                            move |path: &Path| -> bool { path.extension() == ext }
-                        });
+    fn side_panel(&mut self, ctx: &egui::Context) {
+        egui::SidePanel::left("sidepanel")
+            .resizable(false)
+            .show(ctx, |ui| self.controls(ctx, ui));
+    }
 
-                        let mut dialog =
-                            FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
-                        dialog.open();
-                        self.open_dialog = Some(dialog);
-                        ui.close_menu();
-                    }
+    fn controls(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        ui.add_space(6.0);
+        ui.vertical_centered_justified(|ui| self.menu(ctx, ui));
+        ui.separator();
 
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
+        egui::Grid::new("controls")
+            .num_columns(2)
+            .spacing([40.0, 4.0])
+            .striped(false)
+            .show(ui, |ui| {
+                ui.label("Speed:");
+                ui.add(egui::Slider::new(&mut self.speed, 100..=2000));
+                ui.end_row();
+
+                ui.label("Mode:");
+                egui::ComboBox::from_id_source("mode-selector")
+                    .selected_text(format!("{:?}", self.mode))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.mode, InterpreterMode::Chip8, "Chip8");
+                        ui.selectable_value(
+                            &mut self.mode,
+                            InterpreterMode::SuperChip,
+                            "SuperChip",
+                        );
+                    });
+                ui.end_row();
+            });
+    }
+
+    fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        ui.menu_button(egui::RichText::new("\u{2699} Menu").heading(), |ui| {
+            if ui.button("Open").clicked() {
+                let filter = Box::new({
+                    let ext = Some(OsStr::new("ch8"));
+                    move |path: &Path| -> bool { path.extension() == ext }
                 });
-            })
+
+                let mut dialog =
+                    FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
+                dialog.open();
+                self.open_dialog = Some(dialog);
+                ui.close_menu();
+            }
+
+            ui.separator();
+            if ui.button("Quit").clicked() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
         });
     }
 
-    fn controls(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::right("logs")
-            .resizable(true)
-            .show(ctx, |ui| {
-                ui.heading("Logs");
-                egui_logger::logger_ui(ui);
-            });
-    }
-
-    fn logs(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::bottom("controls")
-            .exact_height(0.2 * self.screen_size.y)
-            .show(ctx, |ui| {
-                ui.with_layout(egui::Layout::default().with_cross_justify(true), |ui| {
-                    ui.heading("Interpreter controls");
-
-                    ui.label("Interpreter speed (CPU Cycles / second)");
-                    ui.add(egui::Slider::new(&mut self.speed, 100..=2000));
-
-                    ui.label("Interpreter mode");
-
-                    // let previous_mode = self.mode;
-                    egui::ComboBox::from_id_source("mode-selector")
-                        .selected_text(format!("{:?}", self.mode))
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.mode, InterpreterMode::Chip8, "Chip8");
-                            ui.selectable_value(
-                                &mut self.mode,
-                                InterpreterMode::SuperChip,
-                                "SuperChip",
-                            );
-                        });
-
-                    // if previous_mode != self.mode {
-                    //     let program = self
-                    //         .open_file
-                    //         .as_ref()
-                    //         .map(|path| read_program_from_file(&path).unwrap());
-                    //     self.interpreter = match self.mode {
-                    //         InterpreterMode::Chip8 => {
-                    //             Some(Box::new(Chip8::new(program.as_ref().map(|p| p.as_slice()))))
-                    //         }
-                    //         InterpreterMode::SuperChip => Some(Box::new(Superchip::new(
-                    //             program.as_ref().map(|p| p.as_slice()),
-                    //         ))),
-                    //     }
-                    // }
-                });
-            });
-    }
-
-    fn interpreter_display(&mut self, ctx: &egui::Context) {
+    fn central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Frame::default()
-                .fill(egui::Color32::BLACK)
-                .show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        let (response, painter) = ui.allocate_painter(
-                            ui.available_size_before_wrap(),
-                            egui::Sense::focusable_noninteractive(),
-                        );
-                        self.paint_grid(&painter, response.rect);
-                    });
-                });
+            ui.horizontal(|ui| {
+                ui.selectable_value(
+                    &mut self.current_tab,
+                    Tab::Controls,
+                    egui::RichText::new("\u{1F5A5} Display").heading(),
+                );
+                ui.selectable_value(
+                    &mut self.current_tab,
+                    Tab::Logs,
+                    egui::RichText::new("\u{1F4DC} Logs").heading(),
+                );
+            });
+
+            ui.separator();
+            match self.current_tab {
+                Tab::Controls => self.interpreter_display(ui),
+                Tab::Logs => egui_logger::logger_ui(ui),
+            }
+        });
+    }
+
+    fn interpreter_display(&mut self, ui: &mut egui::Ui) {
+        egui::Frame::dark_canvas(ui.style()).show(ui, |ui| {
+            let rect = ui.available_rect_before_wrap();
+            let (response, painter) = ui.allocate_painter(
+                if rect.aspect_ratio() < 2.0 {
+                    egui::vec2(rect.size().x, 0.5 * rect.size().x)
+                } else {
+                    egui::vec2(2.0 * rect.size().y, rect.size().y)
+                },
+                egui::Sense::focusable_noninteractive(),
+            );
+            self.paint_grid(&painter, response.rect);
         });
     }
 
@@ -182,12 +197,16 @@ impl Octarou {
                 for (x, &cell) in row.iter().enumerate() {
                     if cell == 1u8 {
                         let points = [
-                            rect.min + egui::Vec2::new(x as f32 * scale.x, y as f32 * scale.y),
-                            rect.min
-                                + egui::Vec2::new(
-                                    (x + 1) as f32 * scale.x,
-                                    (y + 1) as f32 * scale.y,
-                                ),
+                            painter.round_pos_to_pixels(
+                                rect.min + egui::Vec2::new(x as f32 * scale.x, y as f32 * scale.y),
+                            ),
+                            painter.round_pos_to_pixels(
+                                rect.min
+                                    + egui::Vec2::new(
+                                        (x + 1) as f32 * scale.x,
+                                        (y + 1) as f32 * scale.y,
+                                    ),
+                            ),
                         ];
                         painter.rect_filled(
                             egui::Rect::from_points(&points),
