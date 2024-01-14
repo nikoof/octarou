@@ -38,17 +38,13 @@ impl Program {
 
 pub struct Octarou {
     interpreter: Option<Box<dyn Interpreter>>,
-
     mode: Mode,
     speed: u64,
-
-    screen_size: egui::Vec2,
-    dialog: Option<FileDialog>,
-    open_file: Option<PathBuf>,
-
     current_program: Option<Program>,
 
+    screen_size: egui::Vec2,
     current_tab: Tab,
+    dialog: Option<FileDialog>,
 }
 
 impl eframe::App for Octarou {
@@ -80,22 +76,22 @@ impl eframe::App for Octarou {
     }
 }
 
-impl Octarou {
-    pub fn new() -> Self {
+impl Default for Octarou {
+    fn default() -> Self {
         Self {
             interpreter: None,
             mode: Mode::Chip8,
             speed: 700,
+            current_program: None,
 
             screen_size: egui::Vec2::ZERO,
-            dialog: None,
-            open_file: None,
-
             current_tab: Tab::Controls,
-            current_program: None,
+            dialog: None,
         }
     }
+}
 
+impl Octarou {
     fn load_interpreter(&mut self) {
         if let Some(Program { ref data, .. }) = self.current_program {
             self.interpreter = Some(match self.mode {
@@ -245,7 +241,10 @@ impl Octarou {
             let ext = Some(OsStr::new("ch8"));
             move |path: &Path| -> bool { path.extension() == ext }
         });
-        let mut dialog = FileDialog::open_file(self.open_file.clone()).show_files_filter(filter);
+        let mut dialog =
+            FileDialog::open_file(self.current_program.as_ref().map(|p| p.file.clone()))
+                .show_files_filter(filter);
+
         dialog.open();
         self.dialog = Some(dialog);
     }
@@ -255,6 +254,13 @@ impl Octarou {
             if dialog.show(ctx).selected() {
                 if let Some(file) = dialog.path() {
                     self.current_program = Program::new(file).ok();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!(
+                        "Octarou - {}",
+                        file.file_name()
+                            .map(|p| p.to_str())
+                            .flatten()
+                            .unwrap_or("not-utf8.ch8")
+                    )));
                     self.load_interpreter();
                 }
             }

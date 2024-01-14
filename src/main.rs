@@ -18,7 +18,7 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
-    let app = Octarou::new();
+    let app = Octarou::default();
     eframe::run_native("Octarou", options, Box::new(move |_cc| Box::new(app))).unwrap();
 
     Ok(())
