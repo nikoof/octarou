@@ -1,4 +1,5 @@
 use anyhow::Result;
+#[allow(unused_imports)]
 use log::{error, info, log, trace, warn};
 use std::{fs::File, io::Read, sync::mpsc};
 
