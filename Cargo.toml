@@ -14,7 +14,7 @@ thiserror = "1.0.56"
 
 egui = "0.25.0"
 eframe = { version = "0.25.0", features = ["default_fonts", "glow"] }
-egui_logger = "0.4.2"
+egui_logger = { git = "https://github.com/nikoof/egui_logger" }
 rfd = { version = "0.12.1", features = [
   "xdg-portal",
 ], default_features = false }

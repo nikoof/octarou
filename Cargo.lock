@@ -930,8 +930,7 @@ dependencies = [
 [[package]]
 name = "egui_logger"
 version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5ffd341e6c280b5c906979137649fe1fb67b07d9d3ea1bb3a29e98bdd613d4"
+source = "git+https://github.com/nikoof/egui_logger#f087b68b7f50d2d0663533802aad8d78a3a88232"
 dependencies = [
  "egui",
  "log",

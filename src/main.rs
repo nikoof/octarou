@@ -36,10 +36,8 @@ fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     let console_log = Box::new(eframe::WebLogger::new(log::LevelFilter::Debug));
-    // TODO: Find a way to log to UI as well as to console
-    // let egui_log = Box::new(egui_logger::init().expect("Failed to initialize egui_logger"));
-
-    multi_log::MultiLogger::init(vec![console_log], log::Level::Trace);
+    let egui_log = Box::new(egui_logger::EguiLogger);
+    multi_log::MultiLogger::init(vec![console_log, egui_log], log::Level::Trace);
 
     let web_options = eframe::WebOptions::default();
 
