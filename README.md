@@ -52,7 +52,7 @@ Alternatively, you can clone the repo and compile the project natively on all ma
 
 ```shell
 git clone https://github.com/nikoof/octarou && cd octarou
-cargo run --release -- --help
+cargo run --release
 ```
 
 # Credits
