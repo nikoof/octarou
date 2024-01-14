@@ -1,12 +1,13 @@
 use anyhow::Result;
 use egui;
 use egui_file::FileDialog;
+use log::{error, info, log, trace, warn};
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::PathBuf;
 use std::{fs::File, path::Path};
 
-use crate::interpreter::{Chip8, Interpreter, Superchip};
+use crate::interpreter::{Chip8, Interpreter, InterpreterError, Superchip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -66,9 +67,17 @@ impl eframe::App for Octarou {
         self.input(ctx);
 
         if let Some(interpreter) = &mut self.interpreter {
-            interpreter
-                .tick(&keys_down, &keys_released, self.speed)
-                .unwrap();
+            let result = interpreter.tick(&keys_down, &keys_released, self.speed);
+
+            if let Err(e) = result {
+                match e {
+                    InterpreterError::OutOfMemory => {
+                        error!("{}. Stopping execution.", e);
+                        self.interpreter = None;
+                    }
+                    _ => error!("{}.", e),
+                }
+            }
         }
 
         self.ui(ctx);
@@ -253,7 +262,11 @@ impl Octarou {
         if let Some(dialog) = &mut self.dialog {
             if dialog.show(ctx).selected() {
                 if let Some(file) = dialog.path() {
-                    self.current_program = Program::new(file).ok();
+                    let new_program = Program::new(file);
+                    match new_program {
+                        Ok(program) => self.current_program = Some(program),
+                        Err(e) => error!("{}.", e),
+                    }
                     ctx.send_viewport_cmd(egui::ViewportCommand::Title(format!(
                         "Octarou - {}",
                         file.file_name()

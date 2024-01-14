@@ -1,6 +1,6 @@
-use super::{instruction::Instruction, Interpreter};
-use anyhow::{anyhow, Result};
+use super::{instruction::Instruction, Interpreter, InterpreterError};
 
+const MEMORY_SIZE: usize = 4096;
 const PROGRAM_ADDRESS: usize = 0x200;
 
 const FONT_ADDRESS: usize = 0x50;
@@ -48,7 +48,7 @@ const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 64;
 
 pub struct Superchip {
-    memory: [u8; 4096],
+    memory: [u8; MEMORY_SIZE],
     pc: usize,
     index: usize,
     stack: Vec<usize>,
@@ -62,7 +62,7 @@ pub struct Superchip {
 
 impl Superchip {
     pub fn new(program: &[u8]) -> Self {
-        let mut memory = [0u8; 4096];
+        let mut memory = [0u8; MEMORY_SIZE];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
 
@@ -91,11 +91,20 @@ impl Interpreter for Superchip {
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
-    fn next_instruction(&mut self) -> Result<Instruction> {
-        let opcode = self.memory[self.pc..self.pc + 2].try_into()?;
-        let opcode = u16::from_be_bytes(opcode);
+    fn next_instruction(&mut self) -> Result<Instruction, InterpreterError> {
+        let opcode = u16::from_be_bytes(
+            self.memory
+                .get(self.pc..self.pc + 2)
+                .ok_or(InterpreterError::OutOfMemory)?
+                .try_into()
+                .expect("Slice should always have length 2"),
+        );
+
         self.pc += 2;
-        Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
+        Instruction::new(opcode).ok_or(InterpreterError::UnknownOpcode {
+            opcode,
+            address: self.pc,
+        })
     }
 
     fn execute_instruction(
@@ -103,7 +112,7 @@ impl Interpreter for Superchip {
         instruction: Instruction,
         keys_down: &[bool; 16],
         keys_released: &[bool; 16],
-    ) -> Result<()> {
+    ) -> Result<(), InterpreterError> {
         use Instruction::*;
         match instruction {
             ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
@@ -138,7 +147,7 @@ impl Interpreter for Superchip {
                 self.pc = address;
             }
             Return => {
-                self.pc = self.stack.pop().expect("Don't pop out of main");
+                self.pc = self.stack.pop().ok_or(InterpreterError::PopOutOfMain)?;
             }
             SkipEq { x, y } => {
                 if self.variables[x] == self.variables[y] {

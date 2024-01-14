@@ -2,31 +2,50 @@ mod chip8;
 mod instruction;
 mod superchip;
 
-use anyhow::Result;
 use instruction::Instruction;
 use std::time;
+use thiserror::Error;
 
 pub use chip8::Chip8;
 pub use superchip::Superchip;
+
+#[derive(Error, Debug)]
+pub enum InterpreterError {
+    #[error("Unknown opcode {opcode:#06x} at {address:#06x}")]
+    UnknownOpcode { opcode: u16, address: usize },
+
+    #[error("Attempted to pop out of an empty callstack")]
+    PopOutOfMain,
+
+    #[error("Program counter was incremented beyond maximum memory size")]
+    OutOfMemory,
+
+    #[error("Instruction {instruction:?} not in CHIP-8 instruction set")]
+    Chip8InvalidInstruction { instruction: Instruction },
+
+    #[allow(unused)]
+    #[error("Instruction {instruction:?} not in SUPERCHIP instruction set")]
+    SuperchipInvalidInstruction { instruction: Instruction },
+}
 
 pub trait Interpreter {
     fn display(&self) -> Vec<&[u8]>;
 
     fn update_timers(&mut self);
-    fn next_instruction(&mut self) -> Result<Instruction>;
+    fn next_instruction(&mut self) -> Result<Instruction, InterpreterError>;
     fn execute_instruction(
         &mut self,
         instruction: Instruction,
         keys_pressed: &[bool; 16],
         keys_released: &[bool; 16],
-    ) -> Result<()>;
+    ) -> Result<(), InterpreterError>;
 
     fn tick(
         &mut self,
         keys_down: &[bool; 16],
         keys_released: &[bool; 16],
         speed: u64,
-    ) -> Result<()> {
+    ) -> Result<(), InterpreterError> {
         let timer_cycle_duration = time::Duration::from_nanos(1_000_000_000 / 60);
         let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / speed);
 
@@ -36,12 +55,8 @@ pub trait Interpreter {
         self.update_timers();
 
         'cpu: loop {
-            match self.next_instruction() {
-                Ok(next_instruction) => {
-                    self.execute_instruction(next_instruction, keys_down, keys_released)?
-                }
-                Err(e) => eprintln!("{}", e),
-            }
+            let next_instruction = self.next_instruction()?;
+            self.execute_instruction(next_instruction, keys_down, keys_released)?;
 
             let cpu_elapsed = now.elapsed() - total_elapsed;
             total_elapsed += cpu_elapsed;

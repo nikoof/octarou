@@ -671,6 +671,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1522,6 +1532,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "multi_log"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad56bb3c7c7c15b4e25de86c9123e886e5f80a0c03ace219b453b081c2bf20d7"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "ndk"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1703,13 +1722,16 @@ name = "octarou"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "console_error_panic_hook",
  "eframe",
  "egui",
  "egui_file",
  "egui_logger",
  "getrandom",
  "log",
+ "multi_log",
  "rand",
+ "thiserror",
  "wasm-bindgen-futures",
 ]
 

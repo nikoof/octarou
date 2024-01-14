@@ -1,7 +1,8 @@
-use super::{instruction::Instruction, Interpreter};
-use anyhow::{anyhow, Result};
+use super::{instruction::Instruction, Interpreter, InterpreterError};
 
+const MEMORY_SIZE: usize = 4096;
 const PROGRAM_ADDRESS: usize = 0x200;
+
 const FONT_ADDRESS: usize = 0x50;
 const FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
@@ -26,7 +27,7 @@ const DISPLAY_WIDTH: usize = 64;
 const DISPLAY_HEIGHT: usize = 32;
 
 pub struct Chip8 {
-    memory: [u8; 4096],
+    memory: [u8; MEMORY_SIZE],
     pc: usize,
     index: usize,
     stack: Vec<usize>,
@@ -38,7 +39,7 @@ pub struct Chip8 {
 
 impl Chip8 {
     pub fn new(program: &[u8]) -> Self {
-        let mut memory = [0u8; 4096];
+        let mut memory = [0u8; MEMORY_SIZE];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
         memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
 
@@ -65,11 +66,20 @@ impl Interpreter for Chip8 {
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
-    fn next_instruction(&mut self) -> Result<Instruction> {
-        let opcode = self.memory[self.pc..self.pc + 2].try_into()?;
-        let opcode = u16::from_be_bytes(opcode);
+    fn next_instruction(&mut self) -> Result<Instruction, InterpreterError> {
+        let opcode = u16::from_be_bytes(
+            self.memory
+                .get(self.pc..self.pc + 2)
+                .ok_or(InterpreterError::OutOfMemory)?
+                .try_into()
+                .expect("Slice should always have length 2"),
+        );
+
         self.pc += 2;
-        Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
+        Instruction::new(opcode).ok_or(InterpreterError::UnknownOpcode {
+            opcode,
+            address: self.pc,
+        })
     }
 
     fn execute_instruction(
@@ -77,7 +87,7 @@ impl Interpreter for Chip8 {
         instruction: Instruction,
         keys_down: &[bool; 16],
         keys_released: &[bool; 16],
-    ) -> Result<()> {
+    ) -> Result<(), InterpreterError> {
         use Instruction::*;
         match instruction {
             ClearScreen => Ok(self.display.iter_mut().for_each(|e| e.fill(0))),
@@ -112,7 +122,7 @@ impl Interpreter for Chip8 {
                 Ok(())
             }
             Return => {
-                self.pc = self.stack.pop().expect("Don't pop out of main");
+                self.pc = self.stack.pop().ok_or(InterpreterError::PopOutOfMain)?;
                 Ok(())
             }
             SkipEq { x, y } => {
@@ -265,10 +275,7 @@ impl Interpreter for Chip8 {
                 }
                 Ok(())
             }
-            _ => Err(anyhow!(
-                "Instruction {:?} not in Chip8 instruction set.",
-                instruction
-            )),
+            _ => Err(InterpreterError::Chip8InvalidInstruction { instruction }.into()),
         }
     }
 }
