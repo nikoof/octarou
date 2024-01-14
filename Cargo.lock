@@ -1777,7 +1777,7 @@ dependencies = [
 
 [[package]]
 name = "octarou"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",

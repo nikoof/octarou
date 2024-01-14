@@ -5,6 +5,7 @@ authors = ["Nicolas Bratoveanu <nicolasbratoveanu@proton.me"]
 repository = "https://github.com/Nikoof/octarou"
 version = "1.0.0"
 edition = "2021"
+license = "EUPL-1.2"
 
 [dependencies]
 log = "0.4.20"
