@@ -40,6 +40,7 @@ pub trait Interpreter {
         keys_released: &[bool; 16],
     ) -> Result<(), InterpreterError>;
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn tick(
         &mut self,
         keys_down: &[bool; 16],
@@ -71,6 +72,24 @@ pub trait Interpreter {
                 break 'cpu;
             }
         }
+
+        Ok(())
+    }
+
+    // There is no timing in wasm32 since there is no support for std::time::Instant on this
+    // platform. I have tried using wasm_bindgen bindings for JS's Performance.now(), but that
+    // makes the app lag heavily for some reason. For now at least it can load roms.
+    #[cfg(target_arch = "wasm32")]
+    fn tick(
+        &mut self,
+        keys_down: &[bool; 16],
+        keys_released: &[bool; 16],
+        speed: u64,
+    ) -> Result<(), InterpreterError> {
+        self.update_timers();
+
+        let next_instruction = self.next_instruction()?;
+        self.execute_instruction(next_instruction, keys_down, keys_released)?;
 
         Ok(())
     }

@@ -14,14 +14,20 @@ thiserror = "1.0.56"
 
 egui = "0.25.0"
 eframe = { version = "0.25.0", features = ["default_fonts", "glow"] }
-egui_file = "0.14.0"
 egui_logger = "0.4.2"
+rfd = { version = "0.12.1", features = [
+  "xdg-portal",
+], default_features = false }
+futures = "0.3.30"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.2.12", features = ["js"] }
 console_error_panic_hook = "0.1.7"
 multi_log = "0.1.2"
+rfd = { version = "0.12.1", features = [
+  "file-handle-inner",
+], default_features = false }
 
 [profile.release]
 opt-level = 2
