@@ -21,15 +21,23 @@
     utils.lib.eachDefaultSystem (system: let
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnsupportedSystem = true;
+        # config.allowUnsupportedSystem = true;
       };
+      naerskLib = pkgs.callPackage naersk {};
       toolchain = with fenix.packages.${system};
+        combine [
+          stable.rustc
+          stable.cargo
+          stable.rustfmt
+          stable.rust-analyzer
+          targets.wasm32-unknown-unknown.stable.rust-std
+        ];
+      toolchainWindows = with fenix.packages.${system};
         combine [
           minimal.cargo
           minimal.rustc
           targets.x86_64-pc-windows-gnu.latest.rust-std
         ];
-      naersk-lib = pkgs.callPackage naersk {};
       libPath = with pkgs;
         lib.makeLibraryPath [
           libGL
@@ -41,8 +49,8 @@
           xorg.libXi
         ];
     in {
-      defaultPackage = with pkgs;
-        naersk-lib.buildPackage rec {
+      packages.default = with pkgs;
+        naerskLib.buildPackage rec {
           src = ./.;
           pname = "octarou";
           nativeBuildInputs = [
@@ -56,36 +64,22 @@
           LD_LIBRARY_PATH = libPath;
         };
 
-      devShell = with pkgs;
-        mkShell {
-          inherit (self.checks.${system}.pre-commit-check) shellHook;
-
-          buildInputs = with pkgs; [
-            cargo
-            rustc
-            rustfmt
-            rust-analyzer
-          ];
-
-          RUST_SRC_PATH = rustPlatform.rustLibSrc;
-          LD_LIBRARY_PATH = libPath;
-        };
-
-      packages.windowsCross =
+      packages.x86_64-pc-windows-gnu =
         (pkgs.callPackage naersk {
-          cargo = toolchain;
-          rustc = toolchain;
+          cargo = toolchainWindows;
+          rustc = toolchainWindows;
         })
         .buildPackage
         {
-          src = ./.;
           pname = "octarou";
-
+          src = ./.;
           strictDeps = true;
+
           depsBuildBuild = with pkgs.pkgsCross; [
             mingwW64.stdenv.cc
             mingwW64.windows.pthreads
           ];
+          doCheck = false;
 
           CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
         };
@@ -100,5 +94,18 @@
           taplo.enable = true;
         };
       };
+
+      devShell = with pkgs;
+        mkShell {
+          inherit (self.checks.${system}.pre-commit-check) shellHook;
+
+          buildInputs = with pkgs; [
+            toolchain
+            trunk
+          ];
+
+          RUST_SRC_PATH = rustPlatform.rustLibSrc;
+          LD_LIBRARY_PATH = libPath;
+        };
     });
 }

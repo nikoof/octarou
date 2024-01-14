@@ -6,14 +6,22 @@ repository = "https://github.com/Nikoof/octarou"
 version = "0.2.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-anyhow = "1.0.75"
-eframe = "0.25.0"
-egui = "0.25.0"
-egui_file = "0.14.0"
-egui_logger = { git = "https://github.com/nikoof/egui_logger" }
-env_logger = "0.10.1"
 log = "0.4.20"
+anyhow = "1.0.75"
 rand = "0.8.5"
+
+egui = "0.25.0"
+eframe = { version = "0.25.0", features = ["default_fonts", "glow"] }
+egui_file = "0.14.0"
+egui_logger = "0.4.2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+getrandom = { version = "0.2.12", features = ["js"] }
+
+[profile.release]
+opt-level = 2
+
+[profile.dev.package."*"]
+opt-level = 2
