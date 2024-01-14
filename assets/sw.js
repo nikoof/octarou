@@ -1,4 +1,4 @@
-var cacheName = 'egui-template-pwa';
+var cacheName = 'octarou';
 var filesToCache = [
   './',
   './index.html',
