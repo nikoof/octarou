@@ -1,4 +1,4 @@
-// Copyright Nicolas-Ștefan Bratoveanu, 2023,
+// Copyright Nicolas-Ștefan Bratoveanu, 2023-2024,
 // licensed under the EUPL-1.2-or-later
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]

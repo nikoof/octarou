@@ -71,4 +71,4 @@ Resources used:
 
 # License
 
-Copyright (c) Nicolas-Ștefan Bratoveanu, 2023, licensed under the EUPL-1.2-or-later.
+Copyright (c) Nicolas-Ștefan Bratoveanu, 2023-2024, licensed under the EUPL-1.2-or-later.
