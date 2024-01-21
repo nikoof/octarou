@@ -23,5 +23,5 @@ jobs:
       - name: Make release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "result/bin/octarou.exe":
+          artifacts: "result/bin/octarou.exe"
 
