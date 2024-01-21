@@ -2,6 +2,7 @@
 
 ![License](https://img.shields.io/github/license/nikoof/octarou)
 ![Nix build status](https://github.com/nikoof/octarou/actions/workflows/build_nix.yml/badge.svg)
+![Github Pages](https://github.com/nikoof/octarou/actions/workflows/pages.yml/badge.svg)
 
 A cross-platform CHIP-8 interpreter, featuring a simple UI (powered by [egui](https://github.com/emilk/egui)).
 The following platforms are supported:
