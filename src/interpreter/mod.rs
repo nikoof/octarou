@@ -86,10 +86,26 @@ pub trait Interpreter {
         keys_released: &[bool; 16],
         speed: u64,
     ) -> Result<(), InterpreterError> {
+        let timer_cycle_duration = time::Duration::from_nanos(1_000_000_000 / 60);
+        let cpu_cycle_duration = time::Duration::from_nanos(1_000_000_000 / speed);
+
+        let then = time::Duration::from_millis((eframe::web::now_sec() * 1000.0) as u64);
+        let mut total_elapsed = time::Duration::from_secs(0);
+
         self.update_timers();
 
-        let next_instruction = self.next_instruction()?;
-        self.execute_instruction(next_instruction, keys_down, keys_released)?;
+        'cpu: loop {
+            let next_instruction = self.next_instruction()?;
+            self.execute_instruction(next_instruction, keys_down, keys_released)?;
+
+            let now = time::Duration::from_millis((eframe::web::now_sec() * 1000.0) as u64);
+            let cpu_elapsed = now - then - total_elapsed;
+            total_elapsed += cpu_elapsed;
+
+            if total_elapsed >= timer_cycle_duration {
+                break 'cpu;
+            }
+        }
 
         Ok(())
     }
