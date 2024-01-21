@@ -5,15 +5,12 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '**.rs'
-      - 'Cargo.toml'
-      - 'flake.nix'
-      - 'flake.lock'
+    tags:
+      - '*'
 
 jobs:
   build:
-    name: Build nix targets
+    name: Build x86_64-pc-windows-gnu target with Nix
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,5 +18,10 @@ jobs:
         uses: DeterminateSystems/flake-checker-action@v4
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v3
-      - name: Build default package
-        run: nix build
+      - name: Build windows package
+        run: nix build .#x86_64-pc-windows-gnu
+      - name: Make release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "result/bin/octarou.exe":
+
