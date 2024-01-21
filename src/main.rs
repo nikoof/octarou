@@ -33,7 +33,7 @@ fn main() -> Result<()> {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    eframe::web::PanicHandler::install();
 
     let console_log = Box::new(eframe::WebLogger::new(log::LevelFilter::Debug));
     let egui_log = Box::new(egui_logger::EguiLogger);

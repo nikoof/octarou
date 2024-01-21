@@ -24,7 +24,6 @@ futures = "0.3.30"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.2.12", features = ["js"] }
-console_error_panic_hook = "0.1.7"
 multi_log = "0.1.2"
 rfd = { version = "0.12.1", features = [
   "file-handle-inner",
