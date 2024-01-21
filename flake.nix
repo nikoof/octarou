@@ -124,6 +124,7 @@
 
         packages = with pkgs; [
           trunk
+          nodePackages.conventional-changelog-cli
         ];
 
         LD_LIBRARY_PATH = libPath;
