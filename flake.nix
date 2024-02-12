@@ -142,7 +142,13 @@
         stdenvNoCC.mkDerivation rec {
           name = "ocatrou-paper";
           src = ./doc/paper/src;
-          buildInputs = [coreutils texlive.combined.scheme-medium];
+          buildInputs = [
+            coreutils
+            biber
+            (texlive.combine {
+              inherit (texlive) scheme-medium biblatex csquotes;
+            })
+          ];
           phases = ["unpackPhase" "buildPhase" "installPhase"];
 
           buildPhase = ''
@@ -150,7 +156,7 @@
             mkdir -p .cache/texmf-var
             env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var \
               latexmk -interaction=nonstopmode -pdf -lualatex \
-              ${src}/main.tex
+              $src/main.tex
           '';
 
           installPhase = ''
@@ -162,8 +168,11 @@
       devShells.paper = with pkgs;
         mkShell {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
-          inputsFrom = [packages.paper];
-          packages = [texlab];
+          inputsFrom = [self.packages.${system}.paper];
+          packages = [
+            texlab
+            bibtex-tidy
+          ];
         };
     });
 }

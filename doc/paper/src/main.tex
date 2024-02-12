@@ -1,10 +1,78 @@
 \documentclass[a4paper]{article}
 
+\usepackage{fontspec}
+\usepackage[romanian]{babel}
 \usepackage{amsmath}
+\usepackage{csquotes}
+
+\usepackage[backend=biber]{biblatex}
+\addbibresource{main.bib}
+
+\usepackage{geometry}
+\geometry{
+  top=4cm,
+  bottom=4cm,
+  left=3.5cm,
+  right=3.5cm,
+}
 
 \begin{document}
-\section{Hello, \LaTeX!}
-\begin{align}
-	\displaystyle\int_{a}^{b} -e^{-x^2} \, dx
-\end{align}
+\begin{titlepage}
+	\begin{center}
+		\Large Proiect pentru obținerea atestării profesionale în informatică
+		\vfill
+		\LARGE\textbf{Octarou: Interpretor pentru limbajul de programare CHIP-8}
+
+		\vspace{8pt}
+		\Large Nicolas-Ștefan Bratoveanu \\
+		\large Prof. coordonator Mihaela Stan
+
+		\vfill
+		\Large
+		Colegiul Național „Vasile Alecsandri” Galați \\
+		2023-2024
+	\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Introducere}
+\subsection{Contextualizare}
+\textit{Octarou} este un interpretor pentru limbajul de programare CHIP-8. Acesta este un limbaj de programare interpretat, dezvoltat
+de către Joseph Weisbecker în 1977 pentru sisteme bazate pe microprocesorul RCA 1802. A fost inițial utilizată pe computerele COSMAC VIP și Telmac
+1800. Limbajul a fost creat cu scopul de a permite dezvoltarea mult mai ușoară a jocurilor video pe aceste platforme, permițând utilizarea unor
+instrucțiuni hexazecimale, în locul instrucțiunilor native\cite{langhoff}. Spre sfârșitul anilor '70, în spatele acestui limbaj se formase o comunitate activă
+de dezvoltatori și utilizatori, care a luat naștere odată cu buletinul informativ \textit{VIPer} al revistei \textit{ARESCO}, ale cărei prime
+ediții au dezvăluit codul pentru interpretorul original de CHIP-8.
+
+CHIP-8 s-a răspândit pe alte platforme, precum computerele australiene DREAM 6800, ETI-660 și MicroBee, computerul finlandez menționat mai devreme,
+Telmac 1800 și computerul canadian ACE VDU\cite{langhoff}.
+
+Ulterior, au apărut interpretoare derivate și extensii la limbajul original, folosite, spre exemplu, pe calculatoare grafice (CHIP-48, SUPER-CHIP
+pentru calculatoarele HP-48\cite{langhoff}). Aceste dispozitive aparțineau perioadei de după anii '80 și aveau, de regulă, mult mai multă putere de procesare
+decât microcomputerele din deceniul precedent, cum ar fi COSMAC VIP-ul.
+
+\subsection{Motivația temei}
+La nivel de suprafață, alegerea acestei teme poate părea (cel puțin) dubioasă. Cu toate că este, într-adevăr, o temă destul de obscură, consider
+că este extrem de valoroasă. Implementarea unui astfel de sistem este adesea recomandată ca prim pas în lumea dezvoltării de emulatoare\cite{langhoff}.
+
+\section{Mediul de dezvoltare}
+\subsection{Nix}
+\subsection{Rust}
+\subsection{Librăriile \texttt{eframe} și \texttt{egui}}
+
+\section{Structura aplicației}
+\subsection{Limbajul \texttt{CHIP-8}}
+\subsection{Interpretarea \texttt{CHIP-8}}
+\subsection{Extensia \texttt{SUPERCHIP}}
+\subsection{Interfața grafică}
+
+\section{Îmbunătățiri}
+
+\section{Concluzii}
+
+\newpage
+\printbibliography[title=\section{Bibliografie}]
+
 \end{document}
