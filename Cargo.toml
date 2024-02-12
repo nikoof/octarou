@@ -3,7 +3,7 @@ name = "octarou"
 description = "CHIP-8 interpreter for my high-school CS final project"
 authors = ["Nicolas Bratoveanu <nicolasbratoveanu@proton.me"]
 repository = "https://github.com/Nikoof/octarou"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 license = "EUPL-1.2"
 
