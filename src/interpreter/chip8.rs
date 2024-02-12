@@ -61,6 +61,10 @@ impl Interpreter for Chip8 {
         self.display.iter().map(|row| row.as_slice()).collect()
     }
 
+    fn is_beeping(&self) -> bool {
+        self.sound_timer > 0
+    }
+
     fn update_timers(&mut self) {
         self.delay_timer = self.delay_timer.saturating_sub(1);
         self.sound_timer = self.sound_timer.saturating_sub(1);

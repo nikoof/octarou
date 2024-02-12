@@ -42,10 +42,21 @@ pub struct Octarou {
     current_tab: Tab,
 
     file_dialog_channel: (mpsc::Sender<Program>, mpsc::Receiver<Program>),
+
+    #[allow(unused)]
+    stream: (rodio::OutputStream, rodio::OutputStreamHandle),
+    sink: rodio::Sink,
+    muted: bool,
 }
 
 impl Default for Octarou {
     fn default() -> Self {
+        let (stream, handle) = rodio::OutputStream::try_default().unwrap();
+        let source = rodio::source::SineWave::new(329.628);
+        let sink = rodio::Sink::try_new(&handle).unwrap();
+        sink.append(source);
+        sink.pause();
+
         Self {
             interpreter: None,
             mode: Mode::Chip8,
@@ -56,6 +67,9 @@ impl Default for Octarou {
             current_tab: Tab::Controls,
 
             file_dialog_channel: mpsc::channel(),
+            stream: (stream, handle),
+            sink,
+            muted: false,
         }
     }
 }
@@ -89,6 +103,12 @@ impl eframe::App for Octarou {
         }
 
         if let Some(interpreter) = &mut self.interpreter {
+            if interpreter.is_beeping() && !self.muted {
+                self.sink.play();
+            } else {
+                self.sink.pause();
+            }
+
             let result = interpreter.tick(&keys_down, &keys_released, self.speed);
 
             if let Err(e) = result {
@@ -119,6 +139,13 @@ impl Octarou {
 
     fn input(&mut self, ctx: &egui::Context) {
         ctx.input_mut(|i| {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::CTRL,
+                egui::Key::O,
+            )) {
+                self.open_file_dialog();
+            }
+
             if i.consume_key(egui::Modifiers::CTRL, egui::Key::R) {
                 self.load_interpreter();
             }
@@ -164,17 +191,27 @@ impl Octarou {
                     });
 
                 ui.end_row();
+
+                ui.label("Mute audio:");
+                ui.checkbox(&mut self.muted, "");
+                ui.end_row();
             });
     }
 
     fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.menu_button(egui::RichText::new("\u{2699} Menu").heading(), |ui| {
-            if ui.button("Open").clicked() {
+            if ui
+                .add(egui::Button::new("Open").shortcut_text(ctx.format_shortcut(
+                    &egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O),
+                )))
+                .clicked()
+            {
                 self.open_file_dialog();
                 ui.close_menu();
             }
 
             ui.separator();
+
             if ui.button("Quit").clicked() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }

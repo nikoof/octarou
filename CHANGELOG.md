@@ -1,3 +1,17 @@
+# [v1.1.0](https://github.com/nikoof/octarou/compare/v1.0.0...v1.1.0) (2024-02-12)
+
+### Bug Fixes
+
+* **build:** add alsa deps to flake.nix ([11bad8d](https://github.com/nikoof/octarou/commit/11bad8d1d74b1ef67d5954aee4698c845d50e392))
+
+
+### Features
+
+* **sound:** add beep ([f9f89ee](https://github.com/nikoof/octarou/commit/f9f89ee06501ee8f91030a5e698e5689d2d18e14))
+* **sound:** add mute toggle ([a6e324c](https://github.com/nikoof/octarou/commit/a6e324cf342751bb9af16d5908b49d74bc6cb0bd))
+
+
+
 # [v1.0.0](https://github.com/nikoof/octarou/compare/v0.2.0...v1.0.0) (2024-01-21)
 
 ### Bug Fixes
@@ -52,3 +66,11 @@
 - implement timing (badly) ([8fbc857](https://github.com/nikoof/octarou/commit/8fbc85736a47cb55085883e319c5f61e0025f751))
 - implemented CLI interface ([1c79cdd](https://github.com/nikoof/octarou/commit/1c79cdd3bc94ef39349d9f17e4af820dbf1684d2))
 - skeleton fetch/decode/execute loop ([bc1d941](https://github.com/nikoof/octarou/commit/bc1d9411ff39e536a3b851cdb1277cdc5d1e4d3d))
+##  (2024-02-12)
+
+* feat(sound): add beep ([f9f89ee](https://github.com/nikoof/octarou/commit/f9f89ee))
+* feat(sound): add mute toggle ([a6e324c](https://github.com/nikoof/octarou/commit/a6e324c))
+* fix(build): add alsa deps to flake.nix ([11bad8d](https://github.com/nikoof/octarou/commit/11bad8d))
+
+
+
