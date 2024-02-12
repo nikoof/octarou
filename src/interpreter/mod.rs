@@ -30,6 +30,7 @@ pub enum InterpreterError {
 
 pub trait Interpreter {
     fn display(&self) -> Vec<&[u8]>;
+    fn is_beeping(&self) -> bool;
 
     fn update_timers(&mut self);
     fn next_instruction(&mut self) -> Result<Instruction, InterpreterError>;

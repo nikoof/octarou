@@ -1,6 +1,7 @@
 use anyhow::Result;
 #[allow(unused_imports)]
 use log::{error, info, log, trace, warn};
+use rodio::Source;
 use std::{fs::File, io::Read, sync::mpsc};
 
 use crate::interpreter::{Chip8, Interpreter, InterpreterError, Superchip};
@@ -42,10 +43,20 @@ pub struct Octarou {
     current_tab: Tab,
 
     file_dialog_channel: (mpsc::Sender<Program>, mpsc::Receiver<Program>),
+
+    #[allow(unused)]
+    stream: (rodio::OutputStream, rodio::OutputStreamHandle),
+    sink: rodio::Sink,
 }
 
 impl Default for Octarou {
     fn default() -> Self {
+        let (stream, handle) = rodio::OutputStream::try_default().unwrap();
+        let source = rodio::source::SineWave::new(329.628);
+        let sink = rodio::Sink::try_new(&handle).unwrap();
+        sink.append(source);
+        sink.pause();
+
         Self {
             interpreter: None,
             mode: Mode::Chip8,
@@ -56,6 +67,8 @@ impl Default for Octarou {
             current_tab: Tab::Controls,
 
             file_dialog_channel: mpsc::channel(),
+            stream: (stream, handle),
+            sink,
         }
     }
 }
@@ -89,6 +102,12 @@ impl eframe::App for Octarou {
         }
 
         if let Some(interpreter) = &mut self.interpreter {
+            if interpreter.is_beeping() {
+                self.sink.play();
+            } else {
+                self.sink.pause();
+            }
+
             let result = interpreter.tick(&keys_down, &keys_released, self.speed);
 
             if let Err(e) = result {
