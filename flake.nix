@@ -71,6 +71,12 @@
         inherit src;
         doCheck = false;
       };
+
+      cargoArtifactsWasm = craneLib.buildDepsOnly {
+        inherit src;
+        doCheck = false;
+        CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+      };
     in {
       packages.default = craneLib.buildPackage (commonArgs
         // {
@@ -85,16 +91,12 @@
 
       packages.x86_64-pc-windows-gnu = craneLibWindows.buildPackage (commonArgs
         // {
-          cargoArtifacts = craneLibWindows.buildDepsOnly {
-            inherit src;
-            doCheck = false;
-          };
-
           inherit src;
 
-          depsBuildBuild = with pkgs.pkgsCross; [
-            mingwW64.stdenv.cc
-            mingwW64.windows.pthreads
+          depsBuildBuild = with pkgs; [
+            pkg-config
+            pkgsCross.mingwW64.stdenv.cc
+            pkgsCross.mingwW64.windows.pthreads
           ];
 
           doCheck = false;
@@ -105,7 +107,7 @@
       packages.gh-pages = craneLib.buildTrunkPackage (commonArgs
         // {
           inherit (pkgs) wasm-bindgen-cli;
-          inherit cargoArtifacts;
+          inherit cargoArtifactsWasm;
 
           trunkExtraBuildArgs = "--public-url octarou/";
 
