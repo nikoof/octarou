@@ -1,9 +1,14 @@
 {
   inputs = {
-    naersk.url = "github:nix-community/naersk/master";
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     utils.url = "github:numtide/flake-utils";
     pre-commit.url = "github:cachix/pre-commit-hooks.nix";
+
+    crane = {
+      url = "github:ipetkov/crane";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     fenix = {
       url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -14,120 +19,151 @@
     self,
     nixpkgs,
     utils,
-    naersk,
+    crane,
     pre-commit,
     fenix,
-  } @ inputs:
+    ...
+  }:
     utils.lib.eachDefaultSystem (system: let
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnsupportedSystem = true;
-        };
-        toolchain = with fenix.packages.${system};
-          combine [
-            minimal.cargo
-            minimal.rustc
-            targets.x86_64-pc-windows-gnu.latest.rust-std
+      pkgs = nixpkgs.legacyPackages.${system};
+      craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
+      craneLibWindows = (crane.mkLib pkgs).overrideToolchain toolchainWindows;
+      toolchain = with fenix.packages.${system};
+        combine [
+          stable.rustc
+          stable.cargo
+          stable.rustfmt
+          stable.rust-analyzer
+          targets.wasm32-unknown-unknown.stable.rust-std
+        ];
+      toolchainWindows = with fenix.packages.${system};
+        combine [
+          stable.rustc
+          stable.cargo
+          targets.x86_64-pc-windows-gnu.stable.rust-std
+        ];
+      libPath = with pkgs;
+        lib.makeLibraryPath [
+          libGL
+          libxkbcommon
+          wayland
+          xorg.libX11
+          xorg.libXcursor
+          xorg.libXrandr
+          xorg.libXi
+        ];
+
+      src = pkgs.lib.cleanSourceWith {
+        src = ./.;
+        filter = path: type:
+          (pkgs.lib.hasSuffix "\.html" path)
+          || (pkgs.lib.hasSuffix "\.scss" path)
+          || (pkgs.lib.hasInfix "/assets/" path)
+          || (craneLib.filterCargoSources path type);
+      };
+
+      commonArgs = {
+        inherit src;
+        strictDeps = true;
+      };
+
+      cargoArtifacts = craneLib.buildDepsOnly {
+        inherit src;
+        doCheck = false;
+      };
+
+      cargoArtifactsWasm = craneLib.buildDepsOnly {
+        inherit src;
+        doCheck = false;
+        CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+      };
+    in {
+      packages.default = craneLib.buildPackage (commonArgs
+        // {
+          inherit cargoArtifacts;
+
+          buildInputs = with pkgs;
+            [pkg-config]
+            ++ lib.optional (stdenv.isLinux) alsa-lib;
+
+          LD_LIBRARY_PATH = libPath;
+        });
+
+      packages.x86_64-pc-windows-gnu = craneLibWindows.buildPackage (commonArgs
+        // {
+          inherit src;
+
+          depsBuildBuild = with pkgs; [
+            pkg-config
+            pkgsCross.mingwW64.stdenv.cc
+            pkgsCross.mingwW64.windows.pthreads
           ];
-        naersk-lib = pkgs.callPackage naersk {};
-        libPath = with pkgs;
-          lib.makeLibraryPath [
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXrandr
-            xorg.libXi
-          ];
-      in rec
-      {
-        formatter = pkgs.alejandra;
 
-        defaultPackage = with pkgs;
-          naersk-lib.buildPackage rec {
-            src = ./.;
-            pname = "octarou";
-            nativeBuildInputs = [
-              makeWrapper
-            ];
+          doCheck = false;
 
-            postInstall = ''
-              wrapProgram "$out/bin/${pname}" --prefix LD_LIBRARY_PATH : "${libPath}"
-            '';
+          CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
+        });
 
-            LD_LIBRARY_PATH = libPath;
-          };
+      packages.gh-pages = craneLib.buildTrunkPackage (commonArgs
+        // {
+          inherit (pkgs) wasm-bindgen-cli;
+          inherit cargoArtifactsWasm;
 
-        packages.windowsCross =
-          (pkgs.callPackage naersk {
-            cargo = toolchain;
-            rustc = toolchain;
-          })
-          .buildPackage
-          {
-            src = ./.;
-            pname = "octarou";
+          trunkExtraBuildArgs = "--public-url octarou/";
 
-            strictDeps = true;
-            depsBuildBuild = with pkgs.pkgsCross; [
-              mingwW64.stdenv.cc
-              mingwW64.windows.pthreads
-            ];
+          CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+        });
 
-            CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
-          };
+      formatter = pkgs.alejandra;
+      checks.pre-commit-check = pre-commit.lib.${system}.run {
+        src = ./.;
+        hooks = {
+          alejandra.enable = true;
+          taplo.enable = true;
+          rustfmt.enable = true;
+          # clippy.enable = true;
+        };
+      };
 
-        devShell = with pkgs;
-          mkShell {
-            inherit (self.checks.${system}.pre-commit-check) shellHook;
+      devShell = craneLib.devShell {
+        inherit (self.checks.${system}.pre-commit-check) shellHook;
 
-            buildInputs = [
-              cargo
-              rustc
-              rustfmt
-              rust-analyzer
-            ];
+        inputsFrom = [self.packages.${system}.default];
 
-            RUST_SRC_PATH = rustPlatform.rustLibSrc;
-            LD_LIBRARY_PATH = libPath;
-          };
+        packages = with pkgs; [
+          trunk
+          nodePackages.conventional-changelog-cli
+        ];
 
-        checks.pre-commit-check = pre-commit.lib.${system}.run {
-          src = ./.;
-          hooks = {
-            alejandra.enable = true;
-            rustfmt.enable = true;
-            # clippy.enable = true;
-            taplo.enable = true;
-            chktex.enable = true;
-            latexindent.enable = true;
-          };
+        LD_LIBRARY_PATH = libPath;
+      };
+
+      packages.paper = with pkgs;
+        stdenvNoCC.mkDerivation rec {
+          name = "ocatrou-paper";
+          src = ./doc/paper/src;
+          buildInputs = [coreutils texlive.combined.scheme-medium];
+          phases = ["unpackPhase" "buildPhase" "installPhase"];
+
+          buildPhase = ''
+            export PATH="${lib.makeBinPath buildInputs}"
+            mkdir -p .cache/texmf-var
+            env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var \
+              latexmk -interaction=nonstopmode -pdf -lualatex \
+              ${src}/main.tex
+          '';
+
+          installPhase = ''
+            mkdir -p $out/doc
+            cp main.pdf $out/doc/paper.pdf
+          '';
         };
 
-        packages.paper = with pkgs;
-          stdenvNoCC.mkDerivation rec {
-            name = "ocatrou-paper";
-            src = ./doc/paper/src;
-            buildInputs = [coreutils texlive.combined.scheme-medium];
-            phases = ["unpackPhase" "buildPhase" "installPhase"];
-
-            buildPhase = ''
-              export PATH="${lib.makeBinPath buildInputs}"
-              mkdir -p .cache/texmf-var
-              env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var \
-                latexmk -interaction=nonstopmode -pdf -lualatex \
-                ${src}/main.tex
-            '';
-
-            installPhase = ''
-              mkdir -p $out/doc
-              cp main.pdf $out/doc/paper.pdf
-            '';
-          };
-
-        devShells.paper = with pkgs;
-          mkShell {
-            inherit (self.checks.${system}.pre-commit-check) shellHook;
-            inputsFrom = [packages.paper];
-            packages = [texlab];
-          };
-      });
+      devShells.paper = with pkgs;
+        mkShell {
+          inherit (self.checks.${system}.pre-commit-check) shellHook;
+          inputsFrom = [packages.paper];
+          packages = [texlab];
+        };
+    });
 }

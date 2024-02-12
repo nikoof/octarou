@@ -1,8 +1,6 @@
-use super::{instruction::Instruction, Interpreter};
-use crate::window::{Display, Input};
-use anyhow::{anyhow, Result};
-use std::time::{Duration, Instant};
+use super::{instruction::Instruction, Interpreter, InterpreterError};
 
+const MEMORY_SIZE: usize = 4096;
 const PROGRAM_ADDRESS: usize = 0x200;
 
 const FONT_ADDRESS: usize = 0x50;
@@ -49,13 +47,8 @@ const FONT: [u8; 240] = [
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 64;
 
-const DEFAULT_SPEED: u64 = 700;
-
-pub struct Schip<W>
-where
-    W: Display + Input,
-{
-    memory: [u8; 4096],
+pub struct Superchip {
+    memory: [u8; MEMORY_SIZE],
     pc: usize,
     index: usize,
     stack: Vec<usize>,
@@ -65,78 +58,13 @@ where
     hires: bool,
     display: [[u8; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     running: bool,
-    speed: u64,
-    window: W,
 }
 
-impl<W> Default for Schip<W>
-where
-    W: Display + Input + Default,
-{
-    fn default() -> Self {
-        let mut window = W::default();
-        window.set_update_rate(DEFAULT_SPEED);
-        Self::new(window, DEFAULT_SPEED, None)
-    }
-}
-
-impl<W> Interpreter for Schip<W>
-where
-    W: Display + Input,
-{
-    fn display_open(&self) -> bool {
-        self.running && self.window.is_open()
-    }
-
-    fn tick(&mut self) -> Result<()> {
-        let timer_cycle_duration = Duration::from_nanos(1_000_000_000 / 60);
-        let cpu_cycle_duration = Duration::from_nanos(1_000_000_000 / self.speed);
-
-        let now = Instant::now();
-        let mut total_elapsed = Duration::from_secs(0);
-
-        self.update_timers();
-
-        'cpu: loop {
-            match self.next_instruction() {
-                Ok(next_instruction) => self.execute_instruction(next_instruction),
-                Err(e) => eprintln!("{} at address {:#06x}", e, self.pc - 2),
-            }
-
-            let buffer: Vec<u8> = self.display.into_iter().flatten().collect();
-            self.window
-                .update_buffer(&buffer, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-
-            let cpu_elapsed = now.elapsed() - total_elapsed;
-            total_elapsed += cpu_elapsed;
-
-            if cpu_elapsed < cpu_cycle_duration {
-                let time_left = cpu_cycle_duration - cpu_elapsed;
-                total_elapsed += time_left;
-                std::thread::sleep(time_left);
-            }
-
-            if total_elapsed >= timer_cycle_duration {
-                break 'cpu;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl<W> Schip<W>
-where
-    W: Display + Input,
-{
-    pub fn new(mut display: W, speed: u64, program: Option<&[u8]>) -> Self {
-        display.set_update_rate(speed);
-
-        let mut memory = [0u8; 4096];
+impl Superchip {
+    pub fn new(program: &[u8]) -> Self {
+        let mut memory = [0u8; MEMORY_SIZE];
         memory[FONT_ADDRESS..FONT_ADDRESS + FONT.len()].copy_from_slice(&FONT);
-        if let Some(program) = program {
-            memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
-        }
+        memory[PROGRAM_ADDRESS..PROGRAM_ADDRESS + program.len()].copy_from_slice(program);
 
         Self {
             memory,
@@ -149,9 +77,17 @@ where
             hires: false,
             display: [[0; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             running: true,
-            speed,
-            window: display,
         }
+    }
+}
+
+impl Interpreter for Superchip {
+    fn display(&self) -> Vec<&[u8]> {
+        self.display.iter().map(|row| row.as_slice()).collect()
+    }
+
+    fn is_beeping(&self) -> bool {
+        self.sound_timer > 0
     }
 
     fn update_timers(&mut self) {
@@ -159,14 +95,28 @@ where
         self.sound_timer = self.sound_timer.saturating_sub(1);
     }
 
-    fn next_instruction(&mut self) -> Result<Instruction> {
-        let opcode = self.memory[self.pc..self.pc + 2].try_into()?;
-        let opcode = u16::from_be_bytes(opcode);
+    fn next_instruction(&mut self) -> Result<Instruction, InterpreterError> {
+        let opcode = u16::from_be_bytes(
+            self.memory
+                .get(self.pc..self.pc + 2)
+                .ok_or(InterpreterError::OutOfMemory)?
+                .try_into()
+                .expect("Slice should always have length 2"),
+        );
+
         self.pc += 2;
-        Instruction::new(opcode).ok_or(anyhow!("Cannot decode opcode {:#06x}", opcode))
+        Instruction::new(opcode).ok_or(InterpreterError::UnknownOpcode {
+            opcode,
+            address: self.pc,
+        })
     }
 
-    fn execute_instruction(&mut self, instruction: Instruction) {
+    fn execute_instruction(
+        &mut self,
+        instruction: Instruction,
+        keys_down: &[bool; 16],
+        keys_released: &[bool; 16],
+    ) -> Result<(), InterpreterError> {
         use Instruction::*;
         match instruction {
             ClearScreen => self.display.fill([0; DISPLAY_WIDTH]),
@@ -201,7 +151,7 @@ where
                 self.pc = address;
             }
             Return => {
-                self.pc = self.stack.pop().expect("Don't pop out of main");
+                self.pc = self.stack.pop().ok_or(InterpreterError::PopOutOfMain)?;
             }
             SkipEq { x, y } => {
                 if self.variables[x] == self.variables[y] {
@@ -224,17 +174,17 @@ where
                 }
             }
             SkipIfKey { key_register } => {
-                if self.window.is_key_down(self.variables[key_register]) {
+                if keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             SkipIfNotKey { key_register } => {
-                if !self.window.is_key_down(self.variables[key_register]) {
+                if !keys_down[self.variables[key_register] as usize] {
                     self.pc += 2;
                 }
             }
             GetKey { dest } => {
-                if let Some(key) = self.window.get_key() {
+                if let Some(key) = keys_released.iter().position(|&e| e) {
                     self.variables[dest] = key as u8;
                 } else {
                     self.pc -= 2;
@@ -404,5 +354,7 @@ where
             SaveFlags { x: _ } => (),
             LoadFlags { x: _ } => (),
         }
+
+        Ok(())
     }
 }

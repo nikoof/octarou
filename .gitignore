@@ -5,6 +5,7 @@
 
 # Rust builds
 /target
+/dist
 
 # Tex artifacts
 doc/**/*.bak*

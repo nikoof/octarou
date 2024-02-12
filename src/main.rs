@@ -1,53 +1,54 @@
-// Copyright Nicolas-Ștefan Bratoveanu, 2023,
+// Copyright Nicolas-Ștefan Bratoveanu, 2023-2024,
 // licensed under the EUPL-1.2-or-later
 
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use anyhow::Result;
-use clap::Parser;
-use minifb::{ScaleMode, Window, WindowOptions};
-use std::io::Read;
-use std::{fs::File, path::Path};
+use app::Octarou;
 
-use args::{Args, Variant};
-use interpreter::{Chip8, Interpreter, Schip};
+mod app;
+mod interpreter;
 
-pub mod args;
-pub mod interpreter;
-pub mod window;
-
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> Result<()> {
-    let args = Args::parse();
+    egui_logger::init().expect("Failed to initialize egui_logger");
 
-    let window = Window::new(
-        match args.program.file_name() {
-            Some(s) => s.to_str().unwrap_or("CHIP-8"),
-            None => "CHIP-8",
-        },
-        args.window_width,
-        args.window_height,
-        WindowOptions {
-            resize: true,
-            scale_mode: ScaleMode::AspectRatioStretch,
-            ..WindowOptions::default()
-        },
-    )
-    .unwrap_or_else(|err| panic!("Failed to create window: {}", err));
-
-    let program = read_program_from_file(args.program.as_path())?;
-    let mut state: Box<dyn Interpreter> = match args.variant {
-        Variant::Chip8 => Box::new(Chip8::new(window, args.cpu_speed, Some(&program))),
-        Variant::Schip => Box::new(Schip::new(window, args.cpu_speed, Some(&program))),
+    let native_options = eframe::NativeOptions {
+        viewport: eframe::egui::ViewportBuilder::default()
+            .with_min_inner_size([800.0, 400.0])
+            .with_inner_size([1200.0, 600.0])
+            .with_resizable(true),
+        ..Default::default()
     };
 
-    while state.display_open() {
-        state.tick()?;
-    }
+    eframe::run_native(
+        "Octarou",
+        native_options,
+        Box::new(|_cc| Box::new(Octarou::default())),
+    )
+    .expect("Failed to start eframe");
 
     Ok(())
 }
 
-fn read_program_from_file(path: &Path) -> Result<Vec<u8>> {
-    let mut buf = Vec::new();
-    let mut file = File::open(path)?;
-    file.read_to_end(&mut buf)?;
-    Ok(buf)
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    eframe::web::PanicHandler::install();
+
+    let console_log = Box::new(eframe::WebLogger::new(log::LevelFilter::Debug));
+    let egui_log = Box::new(egui_logger::EguiLogger);
+    multi_log::MultiLogger::init(vec![console_log, egui_log], log::Level::Trace);
+
+    let web_options = eframe::WebOptions::default();
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                "octarou_canvas_id",
+                web_options,
+                Box::new(|_cc| Box::new(app::Octarou::default())),
+            )
+            .await
+            .expect("Failed to start eframe");
+    });
 }
