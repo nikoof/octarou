@@ -1,7 +1,6 @@
 use anyhow::Result;
 #[allow(unused_imports)]
 use log::{error, info, log, trace, warn};
-use rodio::Source;
 use std::{fs::File, io::Read, sync::mpsc};
 
 use crate::interpreter::{Chip8, Interpreter, InterpreterError, Superchip};
@@ -47,6 +46,7 @@ pub struct Octarou {
     #[allow(unused)]
     stream: (rodio::OutputStream, rodio::OutputStreamHandle),
     sink: rodio::Sink,
+    muted: bool,
 }
 
 impl Default for Octarou {
@@ -69,6 +69,7 @@ impl Default for Octarou {
             file_dialog_channel: mpsc::channel(),
             stream: (stream, handle),
             sink,
+            muted: false,
         }
     }
 }
@@ -102,7 +103,7 @@ impl eframe::App for Octarou {
         }
 
         if let Some(interpreter) = &mut self.interpreter {
-            if interpreter.is_beeping() {
+            if interpreter.is_beeping() && !self.muted {
                 self.sink.play();
             } else {
                 self.sink.pause();
@@ -138,6 +139,13 @@ impl Octarou {
 
     fn input(&mut self, ctx: &egui::Context) {
         ctx.input_mut(|i| {
+            if i.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::CTRL,
+                egui::Key::O,
+            )) {
+                self.open_file_dialog();
+            }
+
             if i.consume_key(egui::Modifiers::CTRL, egui::Key::R) {
                 self.load_interpreter();
             }
@@ -183,17 +191,27 @@ impl Octarou {
                     });
 
                 ui.end_row();
+
+                ui.label("Mute audio:");
+                ui.checkbox(&mut self.muted, "");
+                ui.end_row();
             });
     }
 
     fn menu(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
         ui.menu_button(egui::RichText::new("\u{2699} Menu").heading(), |ui| {
-            if ui.button("Open").clicked() {
+            if ui
+                .add(egui::Button::new("Open").shortcut_text(ctx.format_shortcut(
+                    &egui::KeyboardShortcut::new(egui::Modifiers::CTRL, egui::Key::O),
+                )))
+                .clicked()
+            {
                 self.open_file_dialog();
                 ui.close_menu();
             }
 
             ui.separator();
+
             if ui.button("Quit").clicked() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
