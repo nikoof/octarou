@@ -28,6 +28,25 @@
     urlcolor=black
 }
 
+\usepackage{tikz}
+\usetikzlibrary{decorations.pathreplacing}
+
+\newcommand\MemoryLayout[1]{
+  \begin{tikzpicture}[scale=0.3]
+     \foreach \pt/\lbl/\col/\lab [remember=\pt as \tp (initially 0)] in {#1} {
+       \draw[thick](\pt,0)--++(0,3)node[above]{$\lbl$};
+       \foreach \a [parse=true] in {\tp,...,\pt-1} {
+          \draw[fill=\col](\a,0) rectangle ++(1,2);
+       }
+       \if\lab\relax\relax\else
+         \draw[thick,decorate, decoration={brace,amplitude=4mm}]
+            (\pt,-0.2)--node[below=4mm]{\lab} (\tp,-0.2);
+       \fi
+     }
+     \draw[thick](0,0)--++(0,3)node[above]{$0$};
+  \end{tikzpicture}
+}
+
 \begin{document}
 \begin{titlepage}
 	\begin{center}
@@ -140,7 +159,7 @@ a pachetului).
 \textit{Octarou} se bazează pe un Nix flake atât în procesul de dezvoltare cât și în cel de compilare și distribuție. Fișierul \texttt{flake.nix} conține
 o descriere declarativă (\textit{derivație}) a procesului de compilare al aplicației (Listing~\ref{listing:nix-native-build}), dar și a shellului utilizat
 pentru dezvoltarea acesteia. Pentru aceasta am
-utilizat librăria \textit{Crane}\footnote[1]{O librărie Nix pentru compilarea proiectelor Rust prin Cargo. (https://crane.dev/)}, care facilitează
+utilizat librăria \textit{Crane}\footnote{O librărie Nix pentru compilarea proiectelor Rust prin Cargo. (https://crane.dev/)}, care facilitează
 descărcarea dependințelor (versiuni fixe, declarate în \texttt{flake.lock}) și compilare incrementală și compozabilă.
 
 Pachetele Nix sunt definite cu ajutorul unui limbaj funcțional cu evaluare leneșă concepută special pentru gestionarea pachetelor. Dependințele
@@ -149,6 +168,10 @@ sunt urmărite folosind un format intermediar (\textit{derivațiile}), care se a
 \textit{garbage collection}. Acest model funcțional garantează că orice actualizare a pachetelor este \textit{atomică} și permite rollback-uri
 în timp constant\cite{edolstra} $\mathcal{O}(1)$.
 
+Repozitoriul principal în care se poate găsi întreaga colecție de pachete ce pot fi distribuite prin Nix se numește \href{https://github.com/nixos/nixpkgs}{\texttt{nixpkgs}}.
+Acesta găzduiește și codul-sursă pentru NixOS, o distribuție de Linux bazată pe gestionarul de pachete Nix, care este întru totul configurabilă prin
+limbajul Nix.
+
 \begin{listing}
 	\inputminted{nix}{codeblocks/package.nix}
 	\caption{Derivația procesului de compilare pe platforma nativă}
@@ -156,14 +179,73 @@ sunt urmărite folosind un format intermediar (\textit{derivațiile}), care se a
 \end{listing}
 
 \begin{listing}
-	\inputminted{nix}{codeblocks/paper.nix}
-	\caption{Derivația acestui document \LaTeX}
-	\label{listing:this-paper}
+	\inputminted{nix}{codeblocks/cross.nix}
+	\caption{Toolchainul utilizat pentru cross-compilare pentru Windows}
+	\label{listing:nix-cross-build}
 \end{listing}
 
-Nix este, de asemenea, folosit pentru typesettingul acestui document (Listing~\ref{listing:this-paper}).
+\subsubsection{Cross-compilare}
+Pachetele pentru \texttt{x86\_64-pc-windows-gnu} sunt compilate prin Nix și Crane, folosind facilitățile de cross-compilare (Listing~\ref{listing:nix-cross-build})
+din \texttt{nixpkgs}. Procesul acesta este declanșat automat printr-un pipeline de CI pentru fiecare versiune semantică a proiectului. Un
+mecanism similar este utilizat pentru compilarea pentru \texttt{wasm32-unknown-unknown}, arhitectura-țintă pentru platforma web\footnote{
+	WebAssembly încă nu susține toate API-urile utilizate în logica interpretorului (\texttt{std::time::Instant}),
+	motiv pentru care, pe această platformă, aplicația se comportă în moduri non-ideale.}.
+
+% \begin{listing}[hbt!]
+% 	\inputminted{nix}{codeblocks/paper.nix}
+% 	\caption{Derivația acestui document \LaTeX}
+% \end{listing}
+
+\begin{table}
+	\begin{center}
+		\begin{tabular}{ |p{5em}|p{8em}|p{16em}| }
+			\hline
+			\textbf{Componentă} & \textbf{Mărime}                       & \textbf{Utilizare}                                                                                                   \\
+			\hline\hline
+			Memorie             & 4 KB, adrese pe 16 biți               & Memorie volatilă                                                                                                     \\
+			\hline
+			Display             & 64x32 pixeli                          & Grafică                                                                                                              \\
+			\hline
+			Stivă               & practic nelimitată, adrese pe 16 biți & Utilizată pentru apelarea subprogramelor                                                                             \\
+			\hline
+			Delay               & 8 biți                                & Decrementat cu o frecvență de 60 Hz; utilizat pentru calculul timpilor în aplicații                                  \\
+			\hline
+			Sound               & 8 biți                                & Decrementat la fel ca Delay; utilizat pentru gestionarea sunetelor                                                   \\
+			\hline
+			Index               & 16 biți                               & Registru utilizat pentru a indexa memoria (pentru sprite-uri, font etc.)                                             \\
+			\hline
+			Program Counter     & 16 biți                               & Registru care indică adresa de memorie a instrucțiunii ce urmează să fie executată                                   \\
+			\hline
+			Variables           & 16 registre de 8 biți                 & Sunt numerotate de la $V0$ la $VF$ (hexazecimal); folosite ca variabile; $VF$ este folosit ca \textit{flag register} \\
+			\hline
+		\end{tabular}
+		\caption{Componentele interpretorului \texttt{CHIP-8}\cite{langhoff}}
+		\label{tab:componente}
+	\end{center}
+\end{table}
 
 \section{Limbajul \texttt{CHIP-8}}
+Interpretorul \texttt{CHIP-8} operează pe componentele enumerate în Tabela~\ref{tab:componente}. Pe COSMAC VIP, zona de memorie
+dintre $0$ și $512$ biți era ocupată de codul interpretorului (din pricina limitațiilor tehnice), însă în cazul interpretoarelor
+moderne, acest lucru nu este necesar; memoria aceea este utilizată, în schimb, pentru stocarea datelor fontului, care se pun,
+de regulă, în zona $80$-$160$ biți (Figura~\ref{figure:memory}).
+
+\begin{figure}[hbt!]
+	\begin{center}
+		\MemoryLayout{
+		10/512b/blue!20/{Interpretorul},
+		40/4096b/white/{Programul \texttt{CHIP-8}}
+		}
+		\MemoryLayout{
+		2/80b/gray!20/{Gol},
+		6/160b/green!20/{Font},
+		10/512b/gray!20/{Gol},
+		40/4096b/white/{Programul \texttt{CHIP-8}}
+		}
+		\caption{Layoutul de memorie \texttt{CHIP-8} (\underline{NU} la scară)}
+		\label{figure:memory}
+	\end{center}
+\end{figure}
 
 \section{Structura aplicației}
 \subsection{Interpretarea \texttt{CHIP-8}}
