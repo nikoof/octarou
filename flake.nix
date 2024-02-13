@@ -145,8 +145,10 @@
           buildInputs = [
             coreutils
             biber
+            python311Packages.pygments
+            which
             (texlive.combine {
-              inherit (texlive) scheme-medium biblatex csquotes;
+              inherit (texlive) scheme-medium biblatex csquotes minted;
             })
           ];
           phases = ["unpackPhase" "buildPhase" "installPhase"];
@@ -154,9 +156,9 @@
           buildPhase = ''
             export PATH="${lib.makeBinPath buildInputs}"
             mkdir -p .cache/texmf-var
+            which pygmentize 1> /dev/null
             env TEXMFHOME=.cache TEXMFVAR=.cache/texmf-var \
-              latexmk -interaction=nonstopmode -pdf -lualatex \
-              $src/main.tex
+              latexmk -interaction=nonstopmode -pdf -lualatex -pdflualatex="lualatex -shell-escape %O %S"
           '';
 
           installPhase = ''
