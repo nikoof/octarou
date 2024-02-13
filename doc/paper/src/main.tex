@@ -99,9 +99,9 @@ pentru a încapsula o valoare sau \textit{absența acesteia}. Dacă valoarea pe 
 acesta va întoarce valoarea \texttt{None}, pe care apelatorul este forțat să o gestioneze.
 
 \begin{listing}
-  \inputminted{rust}{codeblocks/nonzerou8.rs}
-  \caption{Exemplu de structură cu invariantă simplă}
-  \label{listing:nonzerou8}
+	\inputminted{rust}{codeblocks/nonzerou8.rs}
+	\caption{Exemplu de structură cu invariantă simplă}
+	\label{listing:nonzerou8}
 \end{listing}
 
 Dacă se încearcă utilizarea valorii de tip \texttt{Option<u8>} ca atare, se obține o eroare de compilare.
@@ -134,12 +134,12 @@ de avantajele de securitate, corectitudine și performanță asociate.
 Nix este un gestionar de pachete pentru sisteme Unix-like bazat pe un \textit{model pur funcțional de implementare a software-ului}\cite{edolstra}.
 Acesta gestionează problema implementării și distribuirii pachetelor de software prin instalarea lor într-o locație centralizată, în directoare
 unice, discriminate printr-un hash criptografic. Astfel, elimină problemele asociate lipsei de dependențe și permite coexistența mai multor
-versiuni ale aceluiași pachet (aici, versiune nu se referă doar la numărul de versiune semantică, ci include și parametrii procesului de compilare 
+versiuni ale aceluiași pachet (aici, versiune nu se referă doar la numărul de versiune semantică, ci include și parametrii procesului de compilare
 a pachetului).
 
 \textit{Octarou} se bazează pe un Nix flake atât în procesul de dezvoltare cât și în cel de compilare și distribuție. Fișierul \texttt{flake.nix} conține
 o descriere declarativă (\textit{derivație}) a procesului de compilare al aplicației (Listing~\ref{listing:nix-native-build}), dar și a shellului utilizat
-pentru dezvoltarea acesteia (Listing~\ref{listing:nix-shell}). Pentru aceasta am
+pentru dezvoltarea acesteia. Pentru aceasta am
 utilizat librăria \textit{Crane}\footnote[1]{O librărie Nix pentru compilarea proiectelor Rust prin Cargo. (https://crane.dev/)}, care facilitează
 descărcarea dependințelor (versiuni fixe, declarate în \texttt{flake.lock}) și compilare incrementală și compozabilă.
 
@@ -150,21 +150,15 @@ sunt urmărite folosind un format intermediar (\textit{derivațiile}), care se a
 în timp constant\cite{edolstra} $\mathcal{O}(1)$.
 
 \begin{listing}
-  \inputminted{nix}{codeblocks/octarou-package.nix}
-  \caption{Derivația procesului de compilare pe platforma nativă}
-  \label{listing:nix-native-build}
+	\inputminted{nix}{codeblocks/package.nix}
+	\caption{Derivația procesului de compilare pe platforma nativă}
+	\label{listing:nix-native-build}
 \end{listing}
 
 \begin{listing}
-  \inputminted{nix}{codeblocks/octarou-devshell.nix}
-  \caption{Derivația \texttt{devShell}-ului}
-  \label{listing:nix-shell}
-\end{listing}
-
-\begin{listing}
-  \inputminted{nix}{codeblocks/paper.nix}
-  \caption{Derivația acestui document \LaTeX}
-  \label{listing:this-paper}
+	\inputminted{nix}{codeblocks/paper.nix}
+	\caption{Derivația acestui document \LaTeX}
+	\label{listing:this-paper}
 \end{listing}
 
 Nix este, de asemenea, folosit pentru typesettingul acestui document (Listing~\ref{listing:this-paper}).
