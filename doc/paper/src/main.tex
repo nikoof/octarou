@@ -1,19 +1,31 @@
 \documentclass[a4paper]{article}
 
-\usepackage{fontspec}
 \usepackage[romanian]{babel}
 \usepackage{amsmath}
 \usepackage{csquotes}
+\usepackage{fontspec}
+
+\usepackage{minted}
+\usemintedstyle{emacs}
 
 \usepackage[backend=biber]{biblatex}
 \addbibresource{main.bib}
 
 \usepackage{geometry}
 \geometry{
-  top=4cm,
-  bottom=4cm,
+  top=3.5cm,
+  bottom=3.5cm,
   left=3.5cm,
   right=3.5cm,
+}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    citecolor=black,
+    filecolor=black,
+    linkcolor=black,
+    urlcolor=black
 }
 
 \begin{document}
@@ -53,17 +65,113 @@ Ulterior, au apărut interpretoare derivate și extensii la limbajul original, f
 pentru calculatoarele HP-48\cite{langhoff}). Aceste dispozitive aparțineau perioadei de după anii '80 și aveau, de regulă, mult mai multă putere de procesare
 decât microcomputerele din deceniul precedent, cum ar fi COSMAC VIP-ul.
 
-\subsection{Motivația temei}
+\subsection{Motivația alegerii temei}
 La nivel de suprafață, alegerea acestei teme poate părea (cel puțin) dubioasă. Cu toate că este, într-adevăr, o temă destul de obscură, consider
-că este extrem de valoroasă. Implementarea unui astfel de sistem este adesea recomandată ca prim pas în lumea dezvoltării de emulatoare\cite{langhoff}.
+că este extrem de valoroasă. Astfel de proiecte au valoare din punct de vedere al istoriei calculatoarelor, precum și în cadrul fenomenului de
+„retro-computing”. Mai mult decât atât, CHIP-8, în mod specific, are o valoare educațională deosebită, întrucât implementarea unui astfel de
+sistem este adesea recomandată ca prim pas în lumea dezvoltării de emulatoare\cite{langhoff}.
 
 \section{Mediul de dezvoltare}
-\subsection{Nix}
 \subsection{Rust}
-\subsection{Librăriile \texttt{eframe} și \texttt{egui}}
+Am ales Rust ca limbaj principal de dezvoltare pentru acest proiect. Rust este un limbaj de programare general, multi-paradigmă, care pune accent
+pe siguranță, eficiență și paralelism. Este utilizat în numeroase situații, de la programarea sistemelor, la dezvoltarea de aplicații grafice, dezvoltarea
+web sau a sistemelor integrate.
+
+Performanța și eficiența se datorează absenței unui runtime și a unui \textit{garbage collector}. Siguranța memoriei este asigurată de către sistemul
+de tipuri bogat și de modelul de \textit{ownership}, care permit eliminarea a numeroase tipuri de buguri în stagiul de compilare\cite{rsorg}. Modelul
+de \textit{ownership} impune niște reguli privitoare la deținători\cite[Cap.~4.1]{rustbook}:
+\begin{itemize}
+	\item Orice valoare are un deținător (\textit{owner}).
+	\item Nu poate exista decât un deținător la un moment dat.
+	\item Când deținătorul iese din scope, valoarea este eliberată.
+\end{itemize}
+și la utilizarea referințelor\cite[Cap.~4.2]{rustbook}:
+\begin{itemize}
+	\item Referințele sunt mereu valide.
+	\item La un moment dat, pot exista fie mai multe referințe imuabile, fie o singură referință muabilă, dar niciodată ambele.
+\end{itemize}
+
+Sistemul de tipuri este extrem de puternic și permite modelarea stării unei aplicații în moduri idiomatice, prin utilizarea tipurilor
+pentru a impune invariantele. Spre exemplu, considerăm tipul de date din Listing~\ref{listing:nonzerou8}. Invarianta acestuia este
+că valoarea pe care o memorează este diferită de $0$. Acest lucru este reprezentat direct în sistemul de tipuri prin utilizarea
+\texttt{Option<T>} (echivalent cu \texttt{Maybe a} din Haskell sau \texttt{std::optional<T>} din C++17), un tip polimorfic utilizat
+pentru a încapsula o valoare sau \textit{absența acesteia}. Dacă valoarea pe care o primește constructorul \texttt{new} este nulă,
+acesta va întoarce valoarea \texttt{None}, pe care apelatorul este forțat să o gestioneze.
+
+\begin{listing}
+  \inputminted{rust}{codeblocks/nonzerou8.rs}
+  \caption{Exemplu de structură cu invariantă simplă}
+  \label{listing:nonzerou8}
+\end{listing}
+
+Dacă se încearcă utilizarea valorii de tip \texttt{Option<u8>} ca atare, se obține o eroare de compilare.
+
+\begin{minted}{rust}
+let a = NonZeroU8::new(0);
+println!("{:?}", a + 2);
+\end{minted}
+\begin{verbatim}
+error[E0369]: cannot add `{integer}` to `Option<NonZeroU8>`
+  --> src/main.rs:15:24
+   |
+15 |     println!("{:?}", a + 2);
+   |                      - ^ - {integer}
+   |                      |
+   |                      Option<NonZeroU8>
+\end{verbatim}
+
+„Capturarea” erorilor în stagiul de compilare este una dintre super-puterile acestui limbaj.
+
+\subsubsection{Librăriile \texttt{eframe} și \texttt{egui}}
+\textbf{Egui} este o librărie simplă, rapidă și portabilă de tip \textit{immediate mode GUI} scrisă în Rust pur\cite{egui}, iar
+\textbf{eframe} este o librărie utilizată alături de egui care pune la dispoziție interacțiunea dintre aceasta și platforma specifică
+pe care o țintește aplicația (în cazul acesta, Windows, macOS, Linux, BSD și, parțial, WebAssembly). Spre deosebire de alte librării
+de UI de tip \textit{retained mode}, folsind egui, aplicația redesenează procedural UI-ul în fiecare cadru. Am ales acest mediu
+grafic pentru simplitate și, totodată, datorită faptului că aceste librării sunt scrise în întregime în Rust și beneficiază, prin urmare
+de avantajele de securitate, corectitudine și performanță asociate.
+
+\subsection{Nix}
+Nix este un gestionar de pachete pentru sisteme Unix-like bazat pe un \textit{model pur funcțional de implementare a software-ului}\cite{edolstra}.
+Acesta gestionează problema implementării și distribuirii pachetelor de software prin instalarea lor într-o locație centralizată, în directoare
+unice, discriminate printr-un hash criptografic. Astfel, elimină problemele asociate lipsei de dependențe și permite coexistența mai multor
+versiuni ale aceluiași pachet (aici, versiune nu se referă doar la numărul de versiune semantică, ci include și parametrii procesului de compilare 
+a pachetului).
+
+\textit{Octarou} se bazează pe un Nix flake atât în procesul de dezvoltare cât și în cel de compilare și distribuție. Fișierul \texttt{flake.nix} conține
+o descriere declarativă (\textit{derivație}) a procesului de compilare al aplicației (Listing~\ref{listing:nix-native-build}), dar și a shellului utilizat
+pentru dezvoltarea acesteia (Listing~\ref{listing:nix-shell}). Pentru aceasta am
+utilizat librăria \textit{Crane}\footnote[1]{O librărie Nix pentru compilarea proiectelor Rust prin Cargo. (https://crane.dev/)}, care facilitează
+descărcarea dependințelor (versiuni fixe, declarate în \texttt{flake.lock}) și compilare incrementală și compozabilă.
+
+Pachetele Nix sunt definite cu ajutorul unui limbaj funcțional cu evaluare leneșă concepută special pentru gestionarea pachetelor. Dependințele
+sunt urmărite folosind un format intermediar (\textit{derivațiile}), care se află, alături de restul pachetelor, într-o locație centralizată numită
+\textit{Nix store} (de obicei, la \texttt{/nix/store}). Derivațiile și specificațiile derivațiilor din Nix store sunt eliminate automat prin
+\textit{garbage collection}. Acest model funcțional garantează că orice actualizare a pachetelor este \textit{atomică} și permite rollback-uri
+în timp constant\cite{edolstra} $\mathcal{O}(1)$.
+
+\begin{listing}
+  \inputminted{nix}{codeblocks/octarou-package.nix}
+  \caption{Derivația procesului de compilare pe platforma nativă}
+  \label{listing:nix-native-build}
+\end{listing}
+
+\begin{listing}
+  \inputminted{nix}{codeblocks/octarou-devshell.nix}
+  \caption{Derivația \texttt{devShell}-ului}
+  \label{listing:nix-shell}
+\end{listing}
+
+\begin{listing}
+  \inputminted{nix}{codeblocks/paper.nix}
+  \caption{Derivația acestui document \LaTeX}
+  \label{listing:this-paper}
+\end{listing}
+
+Nix este, de asemenea, folosit pentru typesettingul acestui document (Listing~\ref{listing:this-paper}).
+
+\section{Limbajul \texttt{CHIP-8}}
 
 \section{Structura aplicației}
-\subsection{Limbajul \texttt{CHIP-8}}
 \subsection{Interpretarea \texttt{CHIP-8}}
 \subsection{Extensia \texttt{SUPERCHIP}}
 \subsection{Interfața grafică}
@@ -74,5 +182,8 @@ că este extrem de valoroasă. Implementarea unui astfel de sistem este adesea r
 
 \newpage
 \printbibliography[title=\section{Bibliografie}]
+
+\renewcommand\listoflistingscaption{\section{Listinguri de cod sursă}}
+\listoflistings
 
 \end{document}

@@ -118,7 +118,10 @@
       checks.pre-commit-check = pre-commit.lib.${system}.run {
         src = ./.;
         hooks = {
-          alejandra.enable = true;
+          alejandra = {
+            enable = true;
+            excludes = ["doc"];
+          };
           taplo.enable = true;
           rustfmt.enable = true;
           # clippy.enable = true;
