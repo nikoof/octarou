@@ -151,7 +151,18 @@
             python311Packages.pygments
             which
             (texlive.combine {
-              inherit (texlive) scheme-medium biblatex csquotes minted;
+              inherit
+                (texlive)
+                scheme-medium
+                biblatex
+                csquotes
+                minted
+                ifoddpage
+                relsize
+                tablefootnote
+                xifthen
+                ifmtarg
+                ;
             })
           ];
           phases = ["unpackPhase" "buildPhase" "installPhase"];

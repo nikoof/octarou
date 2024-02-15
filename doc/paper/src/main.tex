@@ -2,10 +2,12 @@
 
 \usepackage[romanian]{babel}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{csquotes}
 \usepackage{fontspec}
 \usepackage{graphicx}
 
+\usepackage[ruled]{algorithm2e}
 \usepackage{minted}
 \usemintedstyle{emacs}
 
@@ -48,12 +50,30 @@
   \end{tikzpicture}
 }
 
+\SetKwInput{KwData}{Date}
+\SetKwInput{KwResult}{Rezultat}
+\SetKwInput{KwIn}{Intrare}
+\SetKwInput{KwOut}{Ieșire}
+\SetKw{KwTo}{pânâ la}
+\SetKw{KwRet}{returnează}
+\SetKw{Return}{returnează}
+\SetKwBlock{Begin}{începe}{sfârșit}
+\SetKwComment{tcc}{/*}{*/}
+\SetKwComment{tcp}{//}{}
+\SetKwIF{If}{ElseIf}{Else}{dacă}{atunci}{altfel dacă}{altfel}{sfârșit}
+\SetKwSwitch{Switch}{Case}{Other}{comută}{execută}{caz}{altfel}{sfârșit}{sfârșit}
+\SetKwFor{For}{pentru}{execută}{sfârșit}
+\SetKwFor{While}{cât timp}{execută}{sfârșit}
+\SetKwFor{ForEach}{pentru fiecare}{execută}{sfârșit}
+\SetKwRepeat{Repeat}{repetă}{până când}
+\SetAlgorithmName{Algoritm}{}{}
+
 \begin{document}
 \begin{titlepage}
 	\begin{center}
 		\Large Proiect pentru obținerea atestării profesionale în informatică
 		\vfill
-		\LARGE\textbf{Octarou: Interpretor pentru limbajul de programare CHIP-8}
+		\LARGE\textbf{Octarou: Interpretor pentru limbajul de programare \texttt{CHIP-8}}
 
 		\vspace{8pt}
 		\Large Nicolas-Ștefan Bratoveanu \\
@@ -69,19 +89,20 @@
 \tableofcontents
 \newpage
 
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 \section{Introducere}
 \subsection{Contextualizare}
-\textit{Octarou} este un interpretor pentru limbajul de programare CHIP-8. Acesta este un limbaj de programare interpretat, dezvoltat
+\textit{Octarou} este un interpretor pentru limbajul de programare \texttt{CHIP-8}. Acesta este un limbaj de programare interpretat, dezvoltat
 de către Joseph Weisbecker în 1977 pentru sisteme bazate pe microprocesorul RCA 1802. A fost inițial utilizată pe computerele COSMAC VIP și Telmac
 1800. Limbajul a fost creat cu scopul de a permite dezvoltarea mult mai ușoară a jocurilor video pe aceste platforme, permițând utilizarea unor
 instrucțiuni hexazecimale, în locul instrucțiunilor native \cite{langhoff}. Spre sfârșitul anilor '70, în spatele acestui limbaj se formase o comunitate activă
 de dezvoltatori și utilizatori, care a luat naștere odată cu buletinul informativ \textit{VIPer} al revistei \textit{ARESCO}, ale cărei prime
-ediții au dezvăluit codul pentru interpretorul original de CHIP-8.
+ediții au dezvăluit codul pentru interpretorul original de \texttt{CHIP-8}.
 
 CHIP-8 s-a răspândit pe alte platforme, precum computerele australiene DREAM 6800, ETI-660 și MicroBee, computerul finlandez menționat mai devreme,
 Telmac 1800 și computerul canadian ACE VDU \cite{langhoff}.
 
-Ulterior, au apărut interpretoare derivate și extensii la limbajul original, folosite, spre exemplu, pe calculatoare grafice (CHIP-48, SUPER-CHIP
+Ulterior, au apărut interpretoare derivate și extensii la limbajul original, folosite, spre exemplu, pe calculatoare grafice (\texttt{CHIP-48}, \texttt{SUPER-CHIP}
 pentru calculatoarele HP-48 \cite{langhoff}). Aceste dispozitive aparțineau perioadei de după anii '80 și aveau, de regulă, mult mai multă putere de procesare
 decât microcomputerele din deceniul precedent, cum ar fi COSMAC VIP-ul.
 
@@ -90,6 +111,8 @@ La nivel de suprafață, alegerea acestei teme poate părea (cel puțin) dubioas
 că este extrem de valoroasă. Astfel de proiecte au valoare din punct de vedere al istoriei calculatoarelor, precum și în cadrul fenomenului de
 „retro-computing”. Mai mult decât atât, CHIP-8, în mod specific, are o valoare educațională deosebită, întrucât implementarea unui astfel de
 sistem este adesea recomandată ca prim pas în lumea dezvoltării de emulatoare \cite{langhoff}.
+
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 
 \section{Mediul de dezvoltare}
 \subsection{Rust}
@@ -197,6 +220,8 @@ mecanism similar este utilizat pentru compilarea pentru \texttt{wasm32-unknown-u
 % 	\caption{Derivația acestui document \LaTeX}
 % \end{listing}
 
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
+
 \begin{table}
 	\begin{center}
 		\begin{tabular}{ |p{5em}|p{8em}|p{16em}| }
@@ -225,11 +250,41 @@ mecanism similar este utilizat pentru compilarea pentru \texttt{wasm32-unknown-u
 	\end{center}
 \end{table}
 
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
+
 \section{Funcționarea \texttt{CHIP-8}}
-Interpretorul \texttt{CHIP-8} operează pe componentele enumerate în Tabela~\ref{tab:componente}. Pe COSMAC VIP, zona de memorie
-dintre 0 și 512 biți era ocupată de codul interpretorului (din pricina limitațiilor tehnice), însă în cazul interpretoarelor
-moderne, acest lucru nu este necesar; memoria aceea este utilizată, în schimb, pentru stocarea fontului, care se pune,
-de regulă, în zona 80--160 biți (Figura~\ref{figure:memory}).
+Interpretorul \texttt{CHIP-8} operează pe componentele enumerate în Tabela~\ref{tab:componente}, citind instrucțiuni din memorie și executându-le,
+modificând memoria și registrele corespunzător.
+
+\subsection{Instrucțiunile}
+Instrucțiunile \texttt{CHIP-8} sunt reprezentate prin numere de 16 biți, citite din memorie, de la adresa indicată de program counter. Simbolic,
+acestea se reprezintă prin 4 cifre hexazecimale. Primii 4 biți (primul \textit{nibble}) discriminează categoriile de instrucțiuni.
+
+Majoritatea instrucțiunilor au una din formele următoare. Cu toate că valorile din cadrul codului instrucțiunii sunt mai mici de 8 sau 16 biți, ele
+sunt tratate ca valori de 8 respectiv 16 biți. În implementația aceasta, valorile de 16 biți sunt tratate ca \texttt{usize}, deoarece sunt folosite
+pentru a indexa tablouri.
+\begin{itemize}
+	\item \texttt{00EE} -- formă literală; o valoare fixă
+	\item \texttt{0NNN} -- formă parametrică; \texttt{NNN} reprezintă o valoare pe 16 biți (de obicei o adresă de memorie)
+	\item \texttt{0XNN} -- formă parametrică; \texttt{X} reprezintă o valoare pe 8 biți (de obicei indexul unui registru de variabile), iar \texttt{NN}, o valoare pe 16 biți (de obicei o adresă de memorie)
+	\item \texttt{0XYN} -- formă parametrică; \texttt{X} și \texttt{Y} reprezintă indecși pentru registrele de variabile, iar \texttt{N}, o valoare pe 8 biți
+\end{itemize}
+
+\begin{listing}[ht!]
+	\inputminted{rust}{codeblocks/opcodes.rs}
+	\caption{Funcțiile utilizate pentru parsarea codurilor de instrucțiuni}
+	\label{listing:xyn}
+\end{listing}
+
+\pagebreak
+
+\subsection{Memoria}
+Memoria are în total 4 KB, adică $2^{12} = 4096$ de octeți. Acest spațiu este adresabil cu adrese de 12 biți, însă, în practică, se folosesc adrese de 16 biți.
+Spre exemplu, registrul \textit{index} (\texttt{I}) reține o adresă de 16 biți care indică locația din memorie a sprite-urilor ce trebuie desenate pe ecran.
+
+Pe COSMAC VIP, zona de memorie dintre 0 și 512 biți era ocupată de codul interpretorului (din pricina limitațiilor
+tehnice), însă în cazul interpretoarelor moderne, acest lucru nu este necesar; memoria aceea este utilizată, în schimb,
+pentru stocarea fontului, care se pune, de regulă, în zona 80--160 biți (Figura~\ref{figure:memory}).
 
 \begin{figure}[hbt!]
 	\begin{center}
@@ -248,25 +303,22 @@ de regulă, în zona 80--160 biți (Figura~\ref{figure:memory}).
 	\end{center}
 \end{figure}
 
-\subsection{Instrucțiunile}
-Instrucțiunile \texttt{CHIP-8} sunt reprezentate prin numere de 16 biți, citite din memorie, de la adresa indicată de program counter. Simbolic,
-acestea se reprezintă prin 4 cifre hexazecimale. Primii 4 biți (primul \textit{nibble}) discriminează categoriile de instrucțiuni.
+Toată memoria este modificabilă, iar programele interpretate se pot și se vor modifica pe ele însele \cite{langhoff}.
 
-Majoritatea instrucțiunilor au una din formele următoare. Cu toate că valorile din cadrul codului instrucțiunii sunt mai mici de 8 sau 16 biți, ele
-sunt tratate ca valori de 8 respectiv 16 biți. În implementația aceasta, valorile de 16 biți sunt tratate ca \texttt{usize}, deoarece sunt folosite
-pentru a indexa tablouri.
-\begin{itemize}
-	\item \texttt{00EE} -- formă literală; o valoare fixă
-	\item \texttt{0NNN} -- formă parametrică; \texttt{NNN} reprezintă o valoare pe 16 biți (de obicei o adresă de memorie)
-	\item \texttt{0XNN} -- formă parametrică; \texttt{X} reprezintă o valoare pe 8 biți (de obicei indexul unui registru de variabile), iar \texttt{NN}, o valoare pe 16 biți (de obicei o adresă de memorie)
-	\item \texttt{0XYN} -- formă parametrică; \texttt{X} și \texttt{Y} reprezintă valori pe 8 biți (indecși pentru registrele de variabile), iar \texttt{N}, o valoare pe 8 biți
-\end{itemize}
+\subsubsection{\texttt{ANNN, FX1E} și \texttt{FX29}}
+Toate aceste instrucțiuni manipulează registrul \texttt{I}. \texttt{ANNN} (\textit{SetIndex}) pur și simplu setează $\texttt{I} \gets \texttt{NNN}$, iar
+\texttt{FX1E} (\textit{AddIndex}) adaugă \texttt{VX} la \texttt{I} ($\texttt{I} \gets \texttt{I} + \texttt{NNN}$).
+Instrucțiunea \texttt{FX29} se numește \textit{SetIndexFont} și setează \texttt{I} la adresa din memorie a caracterului reprezentat de ultimii 4 biți
+(ultimul \textit{nibble}) ai valorii din \texttt{VX}.
 
-\begin{listing}
-	\inputminted{rust}{codeblocks/opcodes.rs}
-	\caption{Funcțiile utilizate pentru parsarea codurilor de instrucțiuni}
-	\label{figure:xyn}
-\end{listing}
+\subsubsection{\texttt{FX55} și \texttt{FX65}}
+Aceste instrucțiuni sunt folosite pentru stocarea și citirea din memorie a valorilor din registrele variabile. \textit{StoreMemory}, \texttt{FX55},
+scrie succesiv în memorie, începând de la adresa \texttt{I}, valorile din registrele \texttt{V0} până la \texttt{VX}. \textit{LoadMemory}, \texttt{FX65}
+face opusul: citește din memorie, începând de la adresa \texttt{I}, valorile din registrele \texttt{V0}--\texttt{VX}.
+
+În interpretorul de pe COSMAC VIP, această instrucțiune incrementa valoarea din \texttt{I}, astfel încât la finalul execuției instrucțiunii aceasta memora
+valoarea $\texttt{I} + \texttt{X} + 1$. Interpretoarele moderne (de la \texttt{CHIP-48} și \texttt{SUPER-CHIP} înainte) nu fac acest lucru; valoarea indexului
+rămâne neschimbată \cite{langhoff}\cite{gulrak}.
 
 \subsection{Ecranul, sprite-urile și fontul}
 Ecranul este actualizat cu o rată de 60 Hz. Fiecare pixel este fie pornit fie oprit.
@@ -278,16 +330,64 @@ analoagă disjuncției logice exclusive (\textit{exclusive or}) între fiecare p
 Fontul este alcătuit din 16 sprite-uri de 4x5 pixeli care reprezintă cifrele hexazecimale 0--F. Caracterele sunt desenate pe ecran la fel ca
 sprite-urile obișnuite \cite{langhoff}.
 
-\subsection{Stiva și apelarea subprogramelor}
-Subprogramele funcționează într-un mod similar cu Assembly. Instrucțiunea \texttt{2NNN} stochează adresa indicată de program counter (\texttt{PC})
-în stiva de apel, iar apoi setează \texttt{PC}-ul la o altă adresă. Instrucțiunea \texttt{00EE} scoate o adresă din stivă și setează \texttt{PC}-ul
-la acea adresă \cite{langhoff}.
+\subsubsection{\texttt{00E0} și \texttt{DXYN}}
+Instrucțiunea \texttt{00E0} (\textit{Clear}) resetează ecranul, adică setează toți pixelii la valoarea 0.
 
-\subsection{Temporizatoarele}
-Cele două registre \texttt{delay} și \texttt{sound} funcționează în mod identic. Au mărimea de 1 octet, deci pot reprezenta valori până la 255.
-Cât timp valorile lor sunt mai mari decât 0, ele sunt decrementate cu 1 de 60 de ori pe secundă, iar acest lucru se întâmplă independent
-de bucla de execuție a instrucțiunilor.
-Registrul \texttt{sound} cauzează un sunet cât timp valoarea sa este mai mare decât 0.
+Instrucțiunea \texttt{DXYN} (\textit{Draw}) este mai complexă. Aici, \texttt{X} și \texttt{Y} reprezintă registrele variabile care conțin coordonatele
+de pe ecran la care trebuie desenat sprite-ul indicat de registrul \texttt{I} (\textit{index}), iar \texttt{N} reprezintă înălțimea sprite-ului
+care trebuie desenat. Cu alte cuvinte, trebuie desenat pe ecran sprite-ul din zona de memorie \texttt{I..I+N}, la coordonatele VX, respectiv,
+VY~\footnote{În implementarea acestei instrucțiuni, valoarea registrului \texttt{I} nu este modificată în niciun fel.}. Coordonatele din VX și VY
+sunt reduse modulo 64, respectiv, 32, adică se „învârt” după marginile ecranului. În schimb, dacă sprite-ul depășește marginile ecranului, acesta
+este pur și simplu tăiat.
+
+\begin{algorithm}[hbt!]
+	\caption{Desenarea unui sprite}\label{alg:dxyn}
+	\tcp{Coordonatele inițiale se „învârt” în jurul ecranului}
+	$x\gets$ VX$\mod 64$\;
+	$y\gets$ VY$\mod 32$\;
+	VF $\gets 0$\;
+	\For{$dy\gets 0,N-1$}{
+		\For{$dx\gets 0,7$}{
+			\tcp{Sprite-ul este tăiat la marginile ecranului}
+			\If{$y + dy < 32$ și $x + dx < 64$}{
+				\tcp{$D$ este un tablou bidimensional ce reprezintă ecranul}
+				\tcp{$M$ este un tablou ce reprezintă memoria}
+				$b \gets$ al $dx$-lea bit din $M[I + dy]$\;
+				VF $\gets b \land D[y + dy][x + dx]$\;
+				$D[y + dy][x + dx] \gets b \oplus D[y + dy][x + dx]$\;
+			}
+		}
+	}
+\end{algorithm}
+
+Pentru fiecare pixel din sprite, acesta modifică pixelul de pe ecran cu care se suprapune prin operația de disjuncție exclusivă. Dacă vreun pixel
+de pe ecran a fost dezactivat (setat la 0) de această instrucțiune, atunci se setează VF la 1, altfel, VF este setat la 0 \cite{langhoff}.
+Algoritmul~\ref{alg:dxyn} reprezintă în linii mari, în pseudocod, procesul de desenare a unui sprite pe ecran.
+
+\subsection{Controlul fluxului și apelarea subprogramelor}
+Controlul fluxului se realizează printr-o serie de instrucțiuni de tip \textit{jump} sau \textit{skip}.
+
+\subsubsection{\texttt{1NNN} și \texttt{BNNN}/\texttt{BXNN}}
+Instrucțiunile \texttt{1NNN} (\textit{Jump}) și \texttt{BNNN} (\textit{JumpOffset}) sunt utilizate pentru a seta program counterul la o adresă
+de memorie specifică. \textit{Jump} setează \texttt{PC} la adresa \texttt{NNN}. \textit{JumpOffset} este mai ambiguă \cite{langhoff}. În interpretorul
+original de \texttt{CHIP-8}, această instrucțiune sărea la adresa $\texttt{NNN} + \texttt{V0}$. În \texttt{CHIP-48} și \texttt{SUPER-CHIP}, ea funcționează
+ca \texttt{BXNN}, sărind la adresa $\texttt{XNN} + \texttt{VX}$.
+
+\subsubsection{\texttt{3XNN, 4XNN, 5XY0} și \texttt{9XY0}}
+Aceste instrucțiuni sar peste următoarea instrucțiune, adică incrementează \texttt{PC} cu 2, astfel:
+\begin{itemize}
+	\item \texttt{3XNN} va sări peste o instrucțiune dacă $\texttt{VX} = \texttt{NN}$.
+	\item \texttt{4XNN} va sări peste o instrucțiune dacă $\texttt{VX} \not = \texttt{NN}$.
+	\item \texttt{5XY0} va sări peste o instrucțiune dacă $\texttt{VX} = \texttt{VY}$.
+	\item \texttt{9XY0} va sări peste o instrucțiune dacă $\texttt{VX} \not = \texttt{VY}$.
+\end{itemize}
+
+Combinându-le cu instrucțiunile \textit{jump}, se poate obține un mecanism de control al fluxului similar cu \texttt{if}-ul din limbajele de programare moderne.
+
+\subsubsection{\texttt{00EE} și \texttt{2NNN}}
+Subprogramele funcționează într-un mod similar cu Assembly. Instrucțiunea \texttt{2NNN} (\textit{Call}) stochează adresa indicată de program counter (\texttt{PC})
+în stiva de apel, iar apoi setează \texttt{PC}-ul la o altă adresă. Instrucțiunea \texttt{00EE} (\textit{Return}) scoate o adresă din stivă și setează \texttt{PC}-ul
+la acea adresă \cite{langhoff}.
 
 \subsection{Tastatura}
 Calculatoarele pe care \texttt{CHIP-8} obișnuia să ruleze utilizau tastaturi hexazecimale, cu 16 taste, de regulă dispuse într-o grilă de 4x4.
@@ -301,14 +401,99 @@ COSMAC VIP și calculatoarele HP48 utilizau dispunerea tastaturii din Figura~\re
 	\label{fig:keypad}
 \end{figure}
 
+\subsubsection{\texttt{EX9E, EXA1} și \texttt{FX0A}}
+Primele două instrucțiuni sunt de tip \textit{skip} și sar peste instrucțiuni în funcție de tastele apăsate, fără să aștepte apăsarea unei taste.
+\begin{itemize}
+	\item \texttt{EX9E} sare peste următoarea instrucțiune dacă tasta corespunzătoare valorii din \texttt{VX} este apăsată.
+	\item \texttt{EXA1} sare peste următoarea instrucțiune dacă tasta corespunzătoare valorii din \texttt{VX} \underline{NU} este apăsată.
+\end{itemize}
+
+Cea de-a treia, \texttt{FX0A}, oprește execuția instrucțiunilor (dar nu și decrementarea temporizatorilor) până ce o tastă este apăsată (și eliberată),
+caz în care valoarea corespunzătoare tastei este pusă în \texttt{VX}.
+
+\subsection{Temporizatoarele}
+Cele două registre \texttt{delay} și \texttt{sound} funcționează în mod identic. Au mărimea de 1 octet, deci pot reprezenta valori până la 255.
+Cât timp valorile lor sunt mai mari decât 0, ele sunt decrementate cu 1 de 60 de ori pe secundă, iar acest lucru se întâmplă independent
+de bucla de execuție a instrucțiunilor.
+Registrul \texttt{sound} cauzează un sunet cât timp valoarea sa este mai mare decât 0.
+
+\subsubsection{\texttt{FX15, FX07} și \texttt{FX18}}
+Aceste instrucțiuni se utilizează pentru a manipula registrele de temporizare. Instrucțiunea \texttt{FX15} (\textit{SetDelay}) setează registrul
+\texttt{delay} la valoarea din \texttt{VX}, iar \texttt{FX18} (\textit{SetSound}) setează registrul \texttt{sound} la valoarea din \texttt{VX}.
+\texttt{FX07} pune valoarea din \texttt{delay} în \texttt{VX}.
+
+\subsection{Instrucțiunile aritmetice și logice}
+Majoritatea instrucțiunilor aritmetice (Tabela~\ref{table:ops}) afectează registrul \texttt{VF}, excepție făcând \texttt{6XNN} și \texttt{7XNN}.
+
+\subsubsection{\texttt{6XNN} și \texttt{7XNN}}
+Ambele instrucțiuni manipulează registrele de variabile. \textit{SetLiteral} (\texttt{6XNN}) pur și simplu efectuează $\texttt{VX} \gets \texttt{NN}$.
+\textit{AddLiteral} adună la registrul variabil o valoare ($\texttt{VX} \gets \texttt{VX} + \texttt{NN}$), fără a modifica valoarea din registrul flag
+\texttt{VF}.
+
+\begin{table}
+	\centering
+	\begin{tabular}{ |l|l|l|l| }
+		\hline
+		\textbf{Codul} & \textbf{Numele}     & \textbf{Operația}                                  & \textbf{Flag register}                                \\
+		\hline
+		\texttt{8XY0}  & \textit{Set}        & $\texttt{VX} \gets \texttt{VY}$                    &                                                       \\
+		\hline
+		\multicolumn{4}{|c|}{\textbf{Operații logice pe biți}}                                                                                            \\
+		\hline
+		\texttt{8XY1}  & \textit{Or}         & $\texttt{VX} \gets \texttt{VX} \lor   \texttt{VY}$ &                                                       \\
+		\texttt{8XY2}  & \textit{And}        & $\texttt{VX} \gets \texttt{VX} \land  \texttt{VY}$ &                                                       \\
+		\texttt{8XY3}  & \textit{Xor}        & $\texttt{VX} \gets \texttt{VX} \oplus \texttt{VY}$ &                                                       \\
+		\texttt{8XY6}  & \textit{RightShift} & $\texttt{VX} \gets \texttt{VY} \ll 1$              & $\texttt{VF} \gets \texttt{VY} \land 1$               \\
+		\texttt{8XYE}  & \textit{LeftShift}  & $\texttt{VX} \gets \texttt{VY} \gg 1$              & $\texttt{VF} \gets \texttt{VY} \gg 7$                 \\
+		\hline
+		\multicolumn{4}{|c|}{\textbf{Operații aritmetice}}                                                                                                \\
+		\hline
+		\texttt{8XY4}  & \textit{Add}        & $\texttt{VX} \gets \texttt{VX} + \texttt{VY}$      & $\texttt{VF} \gets (\texttt{VX} + \texttt{VY} > 255)$ \\
+		\texttt{8XY5}  & \textit{Sub}        & $\texttt{VX} \gets \texttt{VX} - \texttt{VY}$      & $\texttt{VF} \gets (\texttt{VY} < \texttt{VX})$       \\
+		\texttt{8XY7}  & \textit{Sub}        & $\texttt{VX} \gets \texttt{VY} - \texttt{VX}$      & $\texttt{VF} \gets (\texttt{VX} < \texttt{VY})$       \\
+		\hline
+	\end{tabular}
+	\caption{Operațiile aritmetice \texttt{CHIP-8}}\label{table:ops}
+\end{table}
+
+\subsubsection{Registrul \texttt{VF}}
+Instrucțiunea \textit{Add} setează \texttt{VF} la 1 daca valoarea maxima (255) este depășită. \textit{Sub} începe prin a seta \texttt{VF} la 1, iar apoi,
+dacă scăzătorul este mai mare decât descăzutul, „împrumută” din \texttt{VF}, setându-l la 0.
+
+Operațiile \textit{LeftShift} și \textit{RightShift} au comportamente diferite în funcție de varianta \texttt{CHIP-8}. Pe COSMAC VIP, \texttt{VX} lua valoarea
+lui \texttt{VY}, apoi i se aplica operația de bitshift. Pe \texttt{CHIP-48} și \texttt{SUPER-CHIP}, \texttt{VY} este ignorat complet, operația aplicându-i-se
+numai lui \texttt{VX}.
+
+\subsection{Alte instrucțiuni}
+Alte două instrucțiuni \texttt{CHIP-8} sunt \texttt{CXNN} (\textit{Random}) și \texttt{FX33} (\textit{DecimalConversion}).
+\textit{Random} generează un număr aleator, apoi pune în \texttt{VX} conjuncția pe biți dintre numărul generat și \texttt{NN}.
+
+\textit{DecimalConversion} ia numărul din \texttt{VX} (un număr de 8 biți, adică $0 \leq \texttt{VX} \leq 255$) și scrie în zona de memorie \texttt{I..I+3}
+cele 3 cifre în baza 10 ale acestuia (Algoritmul~\ref{alg:base10}).
+
+\begin{algorithm}
+	\caption{Conversie în baza 10}\label{alg:base10}
+	$n \gets \texttt{VX}$\;
+	\For{$j \gets 3,0,-1$}{
+		$M[I + j] \gets n \mod 10$\;
+		$n \gets n / 10$\;
+	}
+\end{algorithm}
+
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
+
 \section{Structura aplicației}
 \subsection{Interpretarea \texttt{CHIP-8}}
 \subsection{Extensia \texttt{SUPERCHIP}}
 \subsection{Interfața grafică}
 
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 \section{Îmbunătățiri}
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 \section{Concluzii}
+%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 
 \newpage
 \printbibliography[title=\section{Bibliografie}]
