@@ -85,6 +85,7 @@
 		2023-2024
 	\end{center}
 \end{titlepage}
+\shipout\null
 
 \tableofcontents
 \newpage
@@ -482,23 +483,188 @@ cele 3 cifre în baza 10 ale acestuia (Algoritmul~\ref{alg:base10}).
 
 %--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 
-\section{Structura aplicației}
+\section{Aplicația}
+\textit{Octarou} are o structură modulară simplă. Repozitoriul principal conține:
+\begin{itemize}
+	\item fișierele de configurare ale mediului de dezvoltare (\texttt{flake.nix, Cargo.toml} etc.)
+	\item codul sursă al aplicației, sub \texttt{src/}
+	      \subitem modulul \texttt{interpreter}, unde se află implementațiile variantelor de \texttt{CHIP-8}
+	      \subitem modulul \texttt{app}, unde se află codul pentru interfața grafică
+	      \subitem modulul \texttt{main}, punctul de intrare al aplicației
+	\item documentația, incluzând acest document și sursa \LaTeX, licența (\texttt{EUPL-1.2}) și instrucțiuni de compilare
+	\item programe \texttt{CHIP-8} (ROMuri), sub \texttt{roms/}
+	\item ROMuri pentru testarea interpretorului, sub \texttt{tests/}
+\end{itemize}
+
+State-ul aplicației există în structura \texttt{Octarou} (Listing~\ref{listing:app}). Câmpul \texttt{interpreter} are tipul
+\texttt{Option<Box<dyn Interpreter>>}, un smart pointer (\texttt{Box<T>}) la un trait-object de tip \texttt{dyn Interpreter}.
+Acesta este state-ul interpretorului. Interpretoarele sunt mereu asociate cu un program. Odată cu încărcarea unui program, un
+nou astfel de obiect este creat, iar cel vechi este eliberat (dacă există). Totodată, pentru a putea susține mai multe variante
+de \texttt{CHIP-8}, în cazul acesta \texttt{CHIP-8} și \texttt{SUPER-CHIP}, este utlizată o formă de polimorfism bazată pe traituri.
+
+Traitul \texttt{Interpreter} (Listing~\ref{listing:trait}) este implementat de două alte tipuri, anume \texttt{Chip8} (Listing~\ref{listing:chip8struct})
+și \texttt{SuperChip}, fiecare din ele implementând varianta corespunzătoare a limbajului \texttt{CHIP-8}. Orice tip care implementează traitul
+\texttt{Interpreter} trebuie să implementeze toate funcțiile asociate acestuia, adică, cu alte cuvinte, orice timp „vrea să fie un interpretor
+de \texttt{CHIP-8}” trebuie să aibă un display, sa își poată actualiza timerele, să citească și să execute o instrucțiune etc.
+
+\begin{listing}[hbt!]
+	\begin{center}
+		\inputminted{rust}{codeblocks/app-struct.rs}
+		\caption{State-ul aplicației}\label{listing:app}
+	\end{center}
+\end{listing}
+
+\begin{listing}[hbt!]
+	\begin{center}
+		\inputminted{rust}{codeblocks/interpreter-trait.rs}
+		\caption{Traitul \texttt{Interpreter}}\label{listing:trait}
+	\end{center}
+\end{listing}
+
 \subsection{Interpretarea \texttt{CHIP-8}}
-\subsection{Extensia \texttt{SUPERCHIP}}
+Un interpretor de \texttt{CHIP-8}, în principiu, execută trei pași într-o buclă infinită: citește o instrucțiune din memorie, decodează
+instrucțiunea pentru a afla ce trebuie să facă, iar apoi execută instrucțiunea \cite{langhoff}. Exterior acestei bucle, temporizatoarele
+trebuie actualizate cu rata de 60 Hz. Bucla de execuție trebuie executată și ea cu o anumită viteză, întrucât, dacă ar fi executată prea
+repede, programele și jocurile \texttt{CHIP-8} ar fi greu sau imposibil de folosit. Prin urmare, ea rulează implicit de 700 de ori pe secundă,
+însă aceast parametru poate fi modificat prin interfață grafică a aplicației.
+
+\begin{listing}[hbt!]
+	\begin{center}
+		\inputminted{rust}{codeblocks/chip8.rs}
+		\caption{Structura interpretorului de \texttt{CHIP-8}}\label{listing:chip8struct}
+	\end{center}
+\end{listing}
+
+\begin{listing}[hbt!]
+	\begin{center}
+		\inputminted{rust}{codeblocks/next-instruction.rs}
+		\caption{Funcția pentru citirea și decodarea instrucțiunilor}\label{listing:nextinst}
+	\end{center}
+\end{listing}
+
+\subsubsection{Citirea și decodarea instrucțiunilor}
+Citirea și decodarea instrucțiunilor se realizează cu ajutorul funcției \verb|next_instruction| (Listing~\ref{listing:nextinst}).
+Ea este responsabilă pentru a extrage și interpreta instrucțiunile din memoria interpretorului \texttt{CHIP-8}. Aceasta începe
+prin extragerea următorului opcode (cod operațional) din memoria sistemului, interpretând 2 octeți (16 biți) de la adresa curentă a programului.
+Apoi, avansând adresa programului cu 2 pentru a indica următoarea instrucțiune, funcția încearcă să creeze o nouă instrucțiune Chip8 folosind
+opcode-ul extras. În cazul în care opcode-ul este necunoscut sau adresa indicată depășește memoria disponibilă, funcția returnează varianta
+\texttt{Err} a tipului \verb|Result<Instruction, InterpreterError>|.
+
+Tipul \texttt{Instruction} este o enumerație (un tip de date algebric) care memorează diferitele tipuri de instrucțiune. Semnătura funcției
+care parsează codul operațional este
+
+\mint{rust}|pub fn new(opcode: u16) -> Option<Self>|
+
+În cazul în care primește un cod invalid, aceasta va întoarce varianta \verb|None|, care va semnifica apelatorului că nu există o instrucțiune
+asociată acelui cod.
+
+\subsubsection{Executarea instrucțiunilor}
+Funcția \verb|execute_instruction| este responsabilă pentru executarea instrucțiunilor interpretate din memoria interpretorului \texttt{CHIP-8}.
+Aceasta primește o instrucțiune și starea curentă a tastelor, apoi, în funcție de tipul instrucțiunii, efectuează operațiile corespunzătoare.
+
+\subsection{Extensia \texttt{SUPER-CHIP}}
+În anul 1990, Erik Bryntse a scris un emulator \texttt{Chip8} pentru calculatorul grafic HP-48 numit \texttt{CHIP-48}, care adaugă o serie
+de instrucțiuni extinse denumite \texttt{SCHIP} sau \texttt{SUPER-CHIP}. \texttt{SUPER-CHIP} își propune să fie compatibil cu versiunea obișnuită
+a setului de instrucțiuni \texttt{Chip8}, iar noile instrucțiuni ocupă spațiul neutilizat din codificarea instrucțiunilor \texttt{Chip8} \cite{bryntse}.
+
+\textit{Octarou} implementează \texttt{SUPER-CHIP} și folosește polimorfismul pentru a permite încărcarea dinamică a programelor într-un interpretor
+de \texttt{SUPER-CHIP}.
+
+În ceea ce privește noutățile aduse de \texttt{SUPER-CHIP} față de \texttt{CHIP-8}, există mai multe îmbunătățiri și extinderi ale setului de instrucțiuni.
+În primul rând, \texttt{SUPER-CHIP} adaugă un ecran mai mare, de dimensiuni 128x64 pixeli, față de ecranul de 64x32 pixeli al \texttt{CHIP-8}. De asemenea,
+\texttt{SUPER-CHIP} include un set suplimentar de instrucțiuni grafice, cum ar fi desenarea sprite-urilor mai mari, de dimensiuni de 16x16 pixeli.
+Iată instrucțiunile noi adăugate în \texttt{SUPER-CHIP} \cite{chip8research}.
+
+\begin{itemize}
+	\item \texttt{00FF} (\verb|Hires|) -- Activează modul grafic de înaltă rezoluție 128x64.
+	\item \texttt{00FE} (\verb|Lores|) -- Dezactivează modul grafic de înaltă rezoluție și revine la 64x32.
+	\item \texttt{00CN} (\verb|ScrollDown {amount: usize}|) -- Derulează ecranul în jos cu 0 până la 15 pixeli.
+	\item \texttt{00FB} (\verb|ScrollRight|) -- Derulează ecranul la dreapta cu 4 pixeli.
+	\item \texttt{00FC} (\verb|ScrollLeft|) -- Derulează ecranul la stânga cu 4 pixeli.
+\end{itemize}
+
+\begin{listing}
+	\begin{center}
+		\inputminted{rust}{codeblocks/scroll.rs}
+		\caption{Implementația derulării pentru \texttt{SUPER-CHIP} în modul \texttt{hires}}
+	\end{center}
+\end{listing}
+
 \subsection{Interfața grafică}
+Interfață grafică este implementată prin librăriile \texttt{eframe} și \texttt{egui}. Este împărțită în două panouri: unul în stânga, unde se află
+meniul și alte controale ale interpretorului, și unul principal, unde se află afișajul interpretorului. Ecranul principal găzduiește și o listă cu
+mesaje de logging, accesabilă prin intermediul meniului cu taburi din partea de sus a ferestrei. Butonul \textit{Menu} permite deschiederea unui
+dialog nativ al sistemului de operare prin care este posibilă încărcarea programelor în interpretor.
+
+\begin{figure}
+	\begin{center}
+		\includegraphics[width=\textwidth]{figures/chip8-logo.png}
+	\end{center}
+	\caption{\textit{Octarou} rulând un program simplu}
+\end{figure}
+
+\begin{figure}[p!]
+	\begin{center}
+		\includegraphics[width=0.95\textwidth]{figures/corax.png}
+	\end{center}
+	\caption{\textit{Octarou} rulând testele \texttt{corax+}}
+\end{figure}
+
+\begin{figure}[p!]
+	\begin{center}
+		\includegraphics[width=0.95\textwidth]{figures/web.png}
+	\end{center}
+	\caption{Lista cu mesaje de logging a \textit{Octarou}, rulând în Mozilla Firefox}
+\end{figure}
+
+\begin{figure}[p!]
+	\begin{center}
+		\includegraphics[width=0.95\textwidth]{figures/tetris.png}
+	\end{center}
+	\caption{\textit{Octarou}, rulând în faimosul joc \textit{Tetris}}
+\end{figure}
+
 
 %--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 \section{Îmbunătățiri}
-%--------------------------------------------------------------------------------------------------------------------------------------------------------------%
+Una din primele îmbunătățiri pe care aș vrea să le implementez este suportul pentru \texttt{XO-CHIP}, o variantă modernă de \texttt{CHIP-8}
+folosită în \textit{Octo}, un compilator și IDE pentru \texttt{CHIP-8}. Majoritatea programelor noi sunt scrise pentru \texttt{XO-CHIP}, ceea
+ce ar însemna ca interpretorul meu ar putea rula mult mai multe programe interesante.
+
+Un alt lucru ce trebuie îmbunătățit este suportul pentru web, întrucât, versiunea 1.1.0 nu implementează temporizarea exactă, întrucât API-urile
+pentru timp nu sunt implementate complet în ecosistemul WebAssembly. De aceea, deși este funcțional, experiența de utilizator pe versiunea web a
+\textit{Octarou} nu este întocmai plăcută.
+
+În afară de acestea, mereu există opțiunea să adaug mai multe chestiuni configurabile legate de diferitele variante de \texttt{CHIP-8}.
+Util ar fi și un sistem de depanare a programelor. Posibilitățile în acest sens sunt numeroase.
 
 %--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 \section{Concluzii}
+În procesul de creare a acestui proiect, am învățat multe lucruri despre programarea în limbajul Rust și despre arhitectura sistemelor
+CHIP-8 și SUPER-CHIP. Crearea unui interpretor pentru aceste sisteme a necesitat o înțelegere profundă a funcționării lor interne, precum
+și abilități solide de analiză și implementare a instrucțiunilor specifice. Am fost expus la concepte precum manipularea memoriei, interpretarea
+instrucțiunilor și gestionarea stării sistemului.
+
+Unul dintre cele mai valoroase aspecte ale procesului de dezvoltare a acestui interpretor a fost navigarea prin provocările de optimizare și
+gestionare a performanței, în special în ceea ce privește ciclul de execuție al instrucțiunilor. De asemenea, am experimentat cu diverse
+abordări de structurare a codului și de gestionare a dependențelor într-un mod eficient și modular. Folosind Nix, am putut crea un mediu de
+dezvoltare izolat și reproductibil, care a facilitat gestionarea dependențelor și a permis implementarea fără prea mult efort a unui pipeline
+de CI (\textit{continuous integration}).
+
+De asemenea, prin lucrul la acest proiect am avut ocazia să contribui la un proiect sursă deschisă \cite{eguilog}.
+
+Acest proiect nu numai că mi-a permis să explorez concepte avansate de programare și arhitectură de calculatoare, dar mi-a oferit și oportunitatea
+de a îmi îmbunătăți abilitățile de dezvoltare software. Dezvoltarea de interpretoare și emulatoare reprezintă nu doar un
+exercițiu tehnic, ci și o explorare a istoriei calculatoarelor și a fundațiilor programării, punând în lumină importanța continuă a învățării și
+a evoluției în acest domeniu în continuă schimbare.
 %--------------------------------------------------------------------------------------------------------------------------------------------------------------%
 
 \newpage
 \printbibliography[title=\section{Bibliografie}]
 
-\renewcommand\listoflistingscaption{\section{Listinguri de cod sursă}}
+\section{Index}
+\renewcommand\listoflistingscaption{Listinguri de cod sursă}
 \listoflistings
+\listoffigures
 
 \end{document}
