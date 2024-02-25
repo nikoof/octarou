@@ -69,6 +69,9 @@
 
       cargoArtifacts = craneLib.buildDepsOnly {
         inherit src;
+        buildInputs = with pkgs;
+          [pkg-config]
+          ++ lib.optional (stdenv.isLinux) alsa-lib;
         doCheck = false;
       };
 
