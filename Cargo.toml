@@ -13,9 +13,9 @@ anyhow = "1.0.75"
 rand = "0.8.5"
 thiserror = "1.0.56"
 
-egui = "0.25.0"
-eframe = { version = "0.25.0", features = ["default_fonts", "glow"] }
-egui_logger = { git = "https://github.com/nikoof/egui_logger" }
+egui = "0.26.0"
+eframe = { version = "0.26.0", features = ["default_fonts", "glow"] }
+egui_logger = "0.4.3"
 rfd = { version = "0.12.1", features = [
   "xdg-portal",
 ], default_features = false }
